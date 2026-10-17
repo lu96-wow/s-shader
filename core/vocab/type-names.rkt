@@ -51,18 +51,28 @@
 
 (define builtin-sampler-names
   '(sampler1D sampler2D sampler3D samplerCube
-    sampler2DArray samplerCubeArray sampler2DMS samplerBuffer
+    sampler1DArray sampler2DArray samplerCubeArray
+    sampler2DMS sampler2DMSArray samplerBuffer
+    sampler2DRect sampler2DRectShadow
     sampler1DShadow sampler2DShadow samplerCubeShadow
-    sampler2DArrayShadow samplerCubeArrayShadow
-    isampler1D isampler2D isampler3D isamplerCube isampler2DArray
-    isamplerCubeArray isampler2DMS isamplerBuffer
-    usampler1D usampler2D usampler3D usamplerCube usampler2DArray
-    usamplerCubeArray usampler2DMS usamplerBuffer))
+    sampler1DArrayShadow sampler2DArrayShadow samplerCubeArrayShadow
+    isampler1D isampler2D isampler3D isamplerCube
+    isampler1DArray isampler2DArray isamplerCubeArray
+    isampler2DMS isampler2DMSArray isamplerBuffer isampler2DRect
+    usampler1D usampler2D usampler3D usamplerCube
+    usampler1DArray usampler2DArray usamplerCubeArray
+    usampler2DMS usampler2DMSArray usamplerBuffer usampler2DRect))
 
 (define builtin-image-names
-  '(image1D image2D image3D imageCube image2DArray imageBuffer
-    iimage1D iimage2D iimage3D iimageCube iimage2DArray iimageBuffer
-    uimage1D uimage2D uimage3D uimageCube uimage2DArray uimageBuffer))
+  '(image1D image2D image3D imageCube
+    image1DArray image2DArray imageCubeArray
+    image2DMS image2DMSArray imageBuffer
+    iimage1D iimage2D iimage3D iimageCube
+    iimage1DArray iimage2DArray iimageCubeArray
+    iimage2DMS iimage2DMSArray iimageBuffer
+    uimage1D uimage2D uimage3D uimageCube
+    uimage1DArray uimage2DArray uimageCubeArray
+    uimage2DMS uimage2DMSArray uimageBuffer))
 
 (define builtin-glsl-type-names
   (append builtin-scalar-names builtin-vector-names
@@ -83,16 +93,22 @@
 
 (define sampler-suffixes
   '(("1D" . "1d") ("2D" . "2d") ("3D" . "3d") ("Cube" . "cube")
-    ("2DArray" . "2d-array") ("CubeArray" . "cube-array")
-    ("2DMS" . "2d-ms") ("Buffer" . "buffer")
+    ("1DArray" . "1d-array") ("2DArray" . "2d-array")
+    ("CubeArray" . "cube-array")
+    ("2DMS" . "2d-ms") ("2DMSArray" . "2d-ms-array") ("Buffer" . "buffer")
+    ("2DRect" . "2d-rect") ("2DRectShadow" . "2d-rect-shadow")
     ("1DShadow" . "1d-shadow") ("2DShadow" . "2d-shadow")
     ("CubeShadow" . "cube-shadow")
+    ("1DArrayShadow" . "1d-array-shadow")
     ("2DArrayShadow" . "2d-array-shadow")
     ("CubeArrayShadow" . "cube-array-shadow")))
 
 (define image-suffixes
   '(("1D" . "1d") ("2D" . "2d") ("3D" . "3d") ("Cube" . "cube")
-    ("2DArray" . "2d-array") ("Buffer" . "buffer")))
+    ("1DArray" . "1d-array") ("2DArray" . "2d-array")
+    ("CubeArray" . "cube-array")
+    ("2DMS" . "2d-ms") ("2DMSArray" . "2d-ms-array")
+    ("Buffer" . "buffer")))
 
 (define (sampler-or-image-alias name prefix-word suffixes)
   (define s (symbol->string name))
