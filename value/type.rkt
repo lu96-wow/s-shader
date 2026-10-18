@@ -19,7 +19,7 @@
 ;; ============================================================
 
 (require ffi/vector
-         "../vocab/type-names.rkt")
+         "../types.rkt")
 
 (provide type-table type-entry type-known? type-elements type-kind
          type-component-bytes type-byte-size type-stride

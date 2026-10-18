@@ -1,16 +1,16 @@
 #lang racket/base
-;; 运行：racket core-test/vec-math-test.rkt
+;; 运行：racket test/vec-math-test.rkt
 (require rackunit
          ffi/vector
-         "../core/value/rename-type.rkt"
-         "../core/value/rename-access.rkt"
-         "../core/value/rename-construct.rkt"
-         "../core/value/rename-layout.rkt"
-         "../core/value/rename-buffer.rkt"
-         "../core/value/convert.rkt"
-         "../core/value/rename-vec.rkt"
-         "../core/value/rename-matrix.rkt"
-         "../core/value/convert.rkt")
+         "../value/rename-type.rkt"
+         "../value/rename-access.rkt"
+         "../value/rename-construct.rkt"
+         "../value/rename-layout.rkt"
+         "../value/rename-buffer.rkt"
+         "../value/convert.rkt"
+         "../value/rename-vec.rkt"
+         "../value/rename-matrix.rkt"
+         "../value/convert.rkt")
 
 (define (lf v) (map (lambda (x) (inexact->exact (round (* x 1e6)))) (f32vector->list v)))
 (define (ld v) (f64vector->list v))

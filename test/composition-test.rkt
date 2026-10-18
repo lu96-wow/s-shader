@@ -2,13 +2,13 @@
 
 ;; ============================================================
 ;; composition-test.rkt —— surface chunk 组合（glsl-fragment / glsl-splice）
-;; 运行：racket core-test/composition-test.rkt
+;; 运行：racket test/composition-test.rkt
 ;; 覆盖：片段复用、递归 glsl-splice、词表共享、interface 合并、定义处源映射、冲突报错
 ;; ============================================================
 
 (require rackunit
          racket/string
-         "../core/glsl/rewrite.rkt")
+         "../glsl/rewrite.rkt")
 
 ;; ---------- 片段定义（定义处）----------
 (glsl-fragment base

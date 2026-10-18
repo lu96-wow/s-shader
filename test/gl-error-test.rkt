@@ -1,11 +1,11 @@
 #lang racket/base
 ;; ============================================================
 ;; gl-error 的行级源映射测试
-;; 运行：racket core-test/gl-error-test.rkt
+;; 运行：racket test/gl-error-test.rkt
 ;; ============================================================
 (require rackunit racket/string
-         "../core/tool/error.rkt"
-         "../core/glsl/rewrite.rkt")
+         "../glsl/error.rkt"
+         "../glsl/rewrite.rkt")
 
 ;; 定位辅助：log → located-error
 (define (loc log prog)

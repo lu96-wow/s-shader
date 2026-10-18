@@ -1,6 +1,6 @@
 # racket-glsl —— 纯 GLSL DSL
 
-`#lang glsl`（collection `glsl`）：在 Racket 里**写 GLSL 文本、造/算 GLSL 值、反射 shader 接口、
+`#lang shader/glsl`（collection `glsl`）：在 Racket 里**写 GLSL 文本、造/算 GLSL 值、反射 shader 接口、
 渲染编译报错**。本包**不依赖、也不含 OpenGL**。
 
 - 只优化「在 Racket 里使用 GLSL」这件事。
@@ -17,8 +17,8 @@ raco pkg install --link .
 
 依赖 `base`（测试另需 `rackunit-lib`）。两个入口：
 
-- **`#lang glsl`** —— 普通 Racket 模块，预置本包全部名字（语言层 + CPU 值层 + 报错层）。
-- **`(require glsl)`** —— 在 `#lang racket/base` 里使用，等价。
+- **`#lang shader/glsl`** —— 普通 Racket 模块，预置本包全部名字（语言层 + CPU 值层 + 报错层）。
+- **`(require shader/glsl)`** —— 在 `#lang racket/base` 里使用，等价。
 
 ## 快速开始
 
@@ -132,7 +132,7 @@ void main() {
   - 变量表：`glsl-builtin-variable-names` / `glsl-builtin-variable-aliases`
   - 函数表：`glsl-builtin-function-names` / `glsl-builtin-function-aliases`
   - 关键字表：`glsl-qualifier-*`（qualifier）与 `glsl-layout-key-*`（layout key）
-  - 类型表：`core/vocab/type-names.rkt` 的 `glsl-type-alias-forms` / `glsl-type-canonical-name`
+  - 类型表：`types.rkt` 的 `glsl-type-alias-forms` / `glsl-type-canonical-name`
 - 用户标识符走通用 `-`→`_`；函数名/变量名/关键字/类型名不会误命中彼此的表。
 - 类型别名也在 CPU 侧生效：`(vec-3 …)`、`(glsl-size 'vec-3)`、`(glsl-struct v (vec-3 pos))`；
   反射里的类型名统一是 canonical（`vec3` / `sampler2D`）。
@@ -376,17 +376,17 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 
 ```
 （仓库根 = 包根）
-  main.rkt                  #lang glsl 的模块语言（聚合下列各层）
+  main.rkt                  #lang shader/glsl 的模块语言（聚合下列各层）
   lang/reader.rkt           #lang 声明
-  core/vocab/type-names.rkt 共享类型词汇表（canonical 类型名 + 类型别名）
-  core/glsl/                Part 1 · (glsl) 内：GLSL 语言
+  types.rkt 共享类型词汇表（canonical 类型名 + 类型别名）
+  glsl/                Part 1 · (glsl) 内：GLSL 语言
     core.rkt                字符串原语
     names.rkt               标识符便携层（变量/函数/关键字别名，分开成表）
     rewrite.rkt             (glsl ...) 宏：表面语法 → core
     pretty.rkt              GLSL 文本美化
     interface.rkt           类型模型 + 接口反射
     program.rkt             glsl-program 产物 + 源映射
-  core/value/               Part 2 · (glsl) 外：CPU 值层（实现 + rename 成对）
+  value/               Part 2 · (glsl) 外：CPU 值层（实现 + rename 成对）
     type.rkt / rename-type.rkt           类型与存储
     access.rkt / rename-access.rkt       取用
     construct.rkt / rename-construct.rkt 构造
@@ -396,11 +396,11 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
     matrix.rkt / rename-matrix.rkt       矩阵运算
     convert.rkt                          精度转换
     cvector.rkt                          内部底座（无 rename）
-  core/tool/error.rkt       报错解析 / 定位 / 渲染（纯函数）
+  glsl/error.rkt       报错解析 / 定位 / 渲染（纯函数）
 ```
 
-细节见 [DESIGN.md](DESIGN.md)；值层内部见 [core/value/README.md](core/value/README.md)；
-语言层见 [core/glsl/README.md](core/glsl/README.md)；共享类型词汇见 [core/vocab/README.md](core/vocab/README.md)。
+细节见 [DESIGN.md](DESIGN.md)；值层内部见 [value/README.md](value/README.md)；
+语言层见 [glsl/README.md](glsl/README.md)；共享类型词汇见 [types.md](types.md)。
 
 ## 测试
 
@@ -410,7 +410,7 @@ raco test core-test     # 无需显示器
 
 覆盖：表面语法重写、标识符便携层（变量/函数/关键字/类型别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、
 向量与矩阵运算、u8/u16 标量数组、控制流嵌套、**片段组合（glsl-fragment/glsl-splice）**、
-`#lang glsl` 顶层入口。
+`#lang shader/glsl` 顶层入口。
 
 ## License
 

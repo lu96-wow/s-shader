@@ -15,7 +15,7 @@
 ;; 全部是 数据 → lambda → 数据 的纯函数（读源文件是报错路径上唯一的 IO）。
 ;; ============================================================
 
-(require racket/string racket/file "../glsl/program.rkt")
+(require racket/string racket/file "program.rkt")
 
 (provide parse-gl-error-log locate-gl-error render-error
          render-gl-linecol render-gl-pretty render-sexpr-pretty

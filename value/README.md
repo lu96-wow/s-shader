@@ -1,7 +1,7 @@
 # value/ —— Part 2：CPU 值层（`(glsl)` 命名空间外）
 
 「逻辑：GLSL 值的 CPU 侧镜像」。每个逻辑 = **实现（Racket 名）+ `rename-*.rkt`（GLSL 名）** 一对，
-共享底座 `cvector.rkt`。不 require 语言层（`core/glsl/`）、不 require opengl。
+共享底座 `cvector.rkt`。不 require 语言层（`glsl/`）、不 require opengl。
 
 | 逻辑 | 实现 | rename（GLSL 名） |
 |---|---|---|
@@ -26,9 +26,9 @@
 | `u16` | `u16vector` | 无（CPU 索引数组 `u16-array`） |
 | `u8` | `u8vector`（即 `bytes`） | 无（CPU 像素数组 `u8-array`） |
 
-`type-table` 只收录**有 CPU 表示**的 GLSL 类型；完整类型目录在 `core/glsl/interface.rkt`。
+`type-table` 只收录**有 CPU 表示**的 GLSL 类型；完整类型目录在 `glsl/interface.rkt`。
 类型查询接受别名：`(glsl-size 'vec-3)`、`(type-kind 'mat-4)`、`(glsl-struct v (vec-3 pos))`
-都在 `core/vocab/type-names.rkt` 里先规范成 canonical（`vec3` / `mat4`）。
+都在 `types.rkt` 里先规范成 canonical（`vec3` / `mat4`）。
 
 ## 依赖方向
 
@@ -41,8 +41,8 @@ rename-*.rkt → 只 require 对应实现
 
 ## 命名
 
-- 实现用 Racket 传统名（`vec-add`、`matrix-ref`、`vec-buffer`）——**不随 `#lang glsl` 导出**。
-- rename 用 GLSL 名（`vadd`、`mat4-ref`、`vec-array`）——随 `#lang glsl` 导出。
+- 实现用 Racket 传统名（`vec-add`、`matrix-ref`、`vec-buffer`）——**不随 `#lang shader/glsl` 导出**。
+- rename 用 GLSL 名（`vadd`、`mat4-ref`、`vec-array`）——随 `#lang shader/glsl` 导出。
 - 取内部存储（零拷贝）用 `X-data`；真正类型转换用 `->type`。
 - `glsl-struct` 的字段名是 Racket 符号，可直接用连字符（`model-pos`）；
   字段类型也可用别名（`vec-3`），编译期会规范成 canonical 存进 `<Name>-fields`。

@@ -1,7 +1,7 @@
 # racket-glsl · 设计与逻辑分层
 
 本包 = **Part 1（GLSL 语言）+ Part 2（CPU 值层）+ 报错层**。包边界即依赖边界：
-**不依赖 `opengl`**，所以 `#lang glsl` / `(require glsl)` 永远不会拉进 OpenGL。
+**不依赖 `opengl`**，所以 `#lang shader/glsl` / `(require shader/glsl)` 永远不会拉进 OpenGL。
 
 （OpenGL 侧在独立包 `racket-glsl-opengl` 中，不属于本仓库。）
 
@@ -24,7 +24,7 @@
 
 ---
 
-## 2. Part 1 · `core/glsl/` —— `(glsl)` 命名空间内
+## 2. Part 1 · `glsl/` —— `(glsl)` 命名空间内
 
 数据流（**完全在编译期**）：
 
@@ -89,12 +89,12 @@
 - CPU `glsl-struct` 的字段类型在编译期规范成 canonical，所以 `<Name>-fields` 里存 `vec3`，
   而不是用户写的 `vec-3`。
 
-细节见 [`core/glsl/README.md`](core/glsl/README.md) 与
-[`core/vocab/README.md`](core/vocab/README.md)。
+细节见 [`glsl/README.md`](glsl/README.md) 与
+[`types.md`](types.md)。
 
 ---
 
-## 3. Part 2 · `core/value/` —— `(glsl)` 命名空间外
+## 3. Part 2 · `value/` —— `(glsl)` 命名空间外
 
 每逻辑一对「实现 + rename」；共享底座 `cvector.rkt`。
 
@@ -120,14 +120,14 @@
 **依赖方向**：`cvector.rkt ← 所有值层模块`；`buffer.rkt ← access.rkt, convert.rkt`；
 `access.rkt ← matrix.rkt`；`rename-*.rkt → 只依赖对应实现`。
 
-值层 Racket 风格名（`vec-add` / `matrix-ref` …）**不随 `#lang glsl` 导出**；需要时直接
-`(require glsl/core/value/vec)` 等。
+值层 Racket 风格名（`vec-add` / `matrix-ref` …）**不随 `#lang shader/glsl` 导出**；需要时直接
+`(require glsl/value/vec)` 等。
 
-细节见 [`core/value/README.md`](core/value/README.md)。
+细节见 [`value/README.md`](value/README.md)。
 
 ---
 
-## 4. 报错层 · `core/tool/error.rkt`（纯函数）
+## 4. 报错层 · `glsl/error.rkt`（纯函数）
 
 编译报错的**解析 / 定位 / 渲染**留在纯包（不碰 opengl，便于离线复用）：
 
@@ -217,7 +217,7 @@ raco test core-test   # 无需显示器
 ```
 
 覆盖：表面语法重写、标识符便携层（连字符 / 内建变量别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、
-向量与矩阵运算、u8/u16 标量数组、控制流嵌套、`#lang glsl` 顶层入口。
+向量与矩阵运算、u8/u16 标量数组、控制流嵌套、`#lang shader/glsl` 顶层入口。
 
 ---
 

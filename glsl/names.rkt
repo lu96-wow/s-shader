@@ -13,7 +13,7 @@
 ;;   3. 关键字表     read-only → readonly、local-size-x → local_size_x
 ;;   4. 用户标识符   其余 wow-name-type → wow_name_type
 ;;
-;; ★ 内建**类型名**别名不在本模块：在 core/vocab/type-names.rkt
+;; ★ 内建**类型名**别名不在本模块：在 types.rkt
 ;;   （vec-3 → vec3、sampler-2d → sampler2D …）。类型名由语言层和值层共享。
 ;;
 ;; 四张表互不干扰：

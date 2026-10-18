@@ -24,7 +24,7 @@
                      racket/syntax
                      "core.rkt"
                      "names.rkt"
-                     "../vocab/type-names.rkt"
+                     "../types.rkt"
                      "interface.rkt"
                      "program.rkt")
          "core.rkt"

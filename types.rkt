@@ -1,13 +1,13 @@
 #lang racket/base
 
 ;; ============================================================
-;; 共享词汇 · core/vocab/type-names.rkt —— GLSL 内建类型名 + 别名表
+;; 共享词汇 · types.rkt —— GLSL 内建类型名 + 别名表
 ;;
 ;; 这是**类型词汇表**的共享底座：
 ;;   - interface.rkt 用它做完整类型目录 / 反射；
 ;;   - value/type.rkt 用它把 CPU 类型查询（glsl-size / type-kind …）规范化。
 ;;
-;; ★ 与 core/glsl/names.rkt 的分工：
+;; ★ 与 glsl/names.rkt 的分工：
 ;;   names.rkt     处理**标识符**（变量 / 函数 / 关键字别名）
 ;;   本模块        处理**内建类型名**（vec3 / sampler2D / mat3x2 …）
 ;;

@@ -2,7 +2,7 @@
 
 ;; ============================================================
 ;; name-test.rkt —— 表面标识符 → GLSL 标识符（便携层）
-;; 运行：racket core-test/name-test.rkt
+;; 运行：racket test/name-test.rkt
 ;;
 ;; 覆盖：
 ;;   - 用户标识符：wow-name-type → wow_name_type（变量/函数/参数/struct/字段）
@@ -16,8 +16,8 @@
 (require rackunit
          racket/string
          racket/list
-         "../core/glsl/rewrite.rkt"
-         "../core/vocab/type-names.rkt")
+         "../glsl/rewrite.rkt"
+         "../types.rkt")
 
 (define-syntax-rule (check-glsl raw (form ...))
   (check-equal? (glsl-program-src (glsl form ...))

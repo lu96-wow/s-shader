@@ -57,5 +57,5 @@
 - 类型别名先规范成 canonical 再进 `glsl-type`，所以反射里的 `glsl-type-name` 永远是
   `vec3` / `sampler2D`，不是 `vec-3` / `sampler-2d`。
 - 片段合并的重复定义检测按**归一后的 GLSL 名**比较：`foo-bar` 与 `foo_bar` 冲突。
-- 类型名清单/别名表现由 `core/vocab/type-names.rkt` 共享（见
+- 类型名清单/别名表现由 `types.rkt` 共享（见
   [`../../DESIGN.md`](../../DESIGN.md) §8）。

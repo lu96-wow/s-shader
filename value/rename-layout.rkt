@@ -8,7 +8,7 @@
 ;; ============================================================
 
 (require "layout.rkt"
-         (for-syntax racket/base racket/syntax "type.rkt" "../vocab/type-names.rkt"))
+         (for-syntax racket/base racket/syntax "type.rkt" "../types.rkt"))
 
 (provide glsl-struct)
 

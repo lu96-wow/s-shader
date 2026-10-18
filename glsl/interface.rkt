@@ -23,7 +23,7 @@
 
 (require racket/list racket/string racket/match
          "names.rkt"
-         (only-in "../vocab/type-names.rkt"
+         (only-in "../types.rkt"
                   builtin-glsl-type-names
                   [builtin-scalar-names scalar-names]
                   [builtin-vector-names vector-names]
@@ -108,7 +108,7 @@
 ;; 内建类型：名字 → glsl-type
 ;; ============================================================
 
-;; 规范类型名清单与别名表在 core/vocab/type-names.rkt（与值层共享）。
+;; 规范类型名清单与别名表在 types.rkt（与值层共享）。
 
 (define (base-component-bytes base) (if (eq? base 'double) 8 4))
 

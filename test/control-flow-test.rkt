@@ -3,7 +3,7 @@
 ;; ============================================================
 ;; control-flow-test.rkt —— (glsl ...) 控制流嵌套测试（非 GL）
 ;;
-;; 运行：racket core-test/control-flow-test.rkt
+;; 运行：racket test/control-flow-test.rkt
 ;; 用「重写输出 == 原始 GLSL 的美化」来断言，跟 rewrite-test.rkt 同一套路。
 ;; 覆盖：when/unless/cond/for/while/do-while/switch 的多层嵌套，break/continue/return/discard，
 ;;       嵌套三元，以及两个已知修复点：
@@ -12,7 +12,7 @@
 ;; ============================================================
 
 (require rackunit
-         "../core/glsl/rewrite.rkt")
+         "../glsl/rewrite.rkt")
 
 (define-syntax-rule (check-glsl raw (form ...))
   (check-equal? (glsl-program-src (glsl form ...))
