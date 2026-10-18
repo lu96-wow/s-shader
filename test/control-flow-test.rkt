@@ -15,8 +15,8 @@
          "../glsl/rewrite.rkt")
 
 (define-syntax-rule (check-glsl raw (form ...))
-  (check-equal? (glsl-program-src (glsl form ...))
-                (glsl-pretty raw)))
+  (check-equal? (shader-program-src (glsl form ...))
+                (shader-pretty raw)))
 
 ;; ---------- 基本嵌套 ----------
 

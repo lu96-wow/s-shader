@@ -17,14 +17,14 @@
 
 (require racket/string racket/file "program.rkt")
 
-(provide parse-gl-error-log locate-gl-error render-error
+(provide parse-shader-error-log locate-shader-error render-error
          render-gl-linecol render-gl-pretty render-sexpr-pretty
-         (struct-out gl-error) (struct-out located-error))
+         (struct-out shader-error) (struct-out located-error))
 
 ;; ---------- 数据 ----------
 
 ;; 一条解析出的编译器错误：只要行（列不用）
-(struct gl-error (line msg) #:transparent)
+(struct shader-error (line msg) #:transparent)
 
 ;; 一条定位后的错误：line/msg = GLSL 行与原始消息；form = 覆盖该行的顶层 form（#f = 无）
 (struct located-error (line msg form) #:transparent)
@@ -35,21 +35,21 @@
 ;; 正则 group2 = 行，group3 = 列（匹配但不用）
 (define log-line-pattern #rx"([0-9]+):([0-9]+)[(]([0-9]+)[)]:")
 
-(define (parse-gl-error-log log)
+(define (parse-shader-error-log log)
   (for/list ([ln (string-split log "\n")]
              #:when (not (string=? ln "")))
     (define m (regexp-match log-line-pattern ln))
     (if m
-        (gl-error (string->number (list-ref m 2)) ln)
-        (gl-error #f ln))))
+        (shader-error (string->number (list-ref m 2)) ln)
+        (shader-error #f ln))))
 
 ;; ---------- ② 定位（行级） ----------
 
 ;; GLSL 行 → 覆盖它的顶层 form。行级，足够。
-(define (locate-gl-error src err)
-  (define line (gl-error-line err))
-  (define form (and line (glsl-program? src) (glsl-program-lookup src line)))
-  (located-error line (gl-error-msg err) form))
+(define (locate-shader-error src err)
+  (define line (shader-error-line err))
+  (define form (and line (shader-program? src) (shader-program-lookup src line)))
+  (located-error line (shader-error-msg err) form))
 
 ;; ---------- ③ 三个渲染器 ----------
 
@@ -77,7 +77,7 @@
 ;; ② OpenGL 美化报错：美化 GLSL 源码 + 标出报错行（源为空则输出空）
 (define (render-gl-pretty src located)
   (define e (first-located located located-error-line))
-  (define body (and e (render-numbered-lines (glsl-src src) (located-error-line e))))
+  (define body (and e (render-numbered-lines (shader-src src) (located-error-line e))))
   (if (and body (not (string=? body "")))
       (string-append "OpenGL source:\n" body)
       ""))
@@ -89,8 +89,8 @@
   (if (not e)
       ""
       (let* ([f (located-error-form e)]
-             [path (glsl-form-src-path f)]
-             [line (glsl-form-src-line f)]
+             [path (shader-form-src-path f)]
+             [line (shader-form-src-line f)]
              [header (if (and path line)
                          (format "s-expr source: ~a:~a\n" path line)
                          "s-expr source:\n")])
@@ -99,7 +99,7 @@
          (cond
            [(and path line (read-file-text path))
             => (lambda (text) (render-numbered-lines text line))]
-           [else (pretty-sexpr (glsl-form-text f))])))))
+           [else (pretty-sexpr (shader-form-text f))])))))
 
 ;; ---------- 渲染工具 ----------
 

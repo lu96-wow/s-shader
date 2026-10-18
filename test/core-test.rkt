@@ -88,17 +88,17 @@
 (check-equal? (glsl-fn "sq" "float" (list (glsl-param '() "float" "x"))
                        (glsl-return (glsl-bin "*" "x" "x")))
               "float sq(float x) { return (x * x); }")
-(check-equal? (glsl-struct-decl "Light" (glsl-field-decl "vec3" "pos") (glsl-field-decl "float" "i"))
+(check-equal? (shader-struct-decl "Light" (glsl-field-decl "vec3" "pos") (glsl-field-decl "float" "i"))
               "struct Light { vec3 pos; float i; };")
 
-;; ---------- 美化（glsl-pretty）断言 ----------
-(check-equal? (glsl-pretty "if (x) { a = b; } else { a = c; }")
+;; ---------- 美化（shader-pretty）断言 ----------
+(check-equal? (shader-pretty "if (x) { a = b; } else { a = c; }")
               "if (x) {\n  a = b;\n} else {\n  a = c;\n}")
-(check-equal? (glsl-pretty "for (int i = 0; i < n; ++i) { x = i; }")
+(check-equal? (shader-pretty "for (int i = 0; i < n; ++i) { x = i; }")
               "for (int i = 0; i < n; ++i) {\n  x = i;\n}")
-(check-equal? (glsl-pretty "do { x = i; } while (i < n);")
+(check-equal? (shader-pretty "do { x = i; } while (i < n);")
               "do {\n  x = i;\n} while (i < n);")
-(check-equal? (glsl-pretty "uniform Camera { mat4 view; } cam;")
+(check-equal? (shader-pretty "uniform Camera { mat4 view; } cam;")
               "uniform Camera {\n  mat4 view;\n} cam;")
 
 ;; ---------- 02 课片元着色器（核心层组装 + 美化） ----------
@@ -145,4 +145,4 @@
 (displayln frag)
 (newline)
 (displayln "===== 美化后 =====")
-(displayln (glsl-pretty frag))
+(displayln (shader-pretty frag))

@@ -8,23 +8,23 @@
 
 (require "type.rkt")
 
-(provide glsl-size glsl-kind glsl-byte-size glsl-stride glsl-stride-bytes glsl-type-table
+(provide shader-size shader-kind shader-byte-size shader-stride shader-stride-bytes shader-type-table
          ;; 新名（消歧；旧名保留为 deprecated）
-         glsl-element-count glsl-storage-kind glsl-stride-elements)
+         shader-element-count shader-storage-kind shader-stride-elements)
 
-(define (glsl-size t) (type-elements t))
-(define (glsl-kind t) (type-kind t))
-(define (glsl-byte-size t) (type-byte-size t))
-(define (glsl-stride . ts) (apply + (map type-elements ts)))
-(define (glsl-stride-bytes . ts) (apply type-stride ts))
+(define (shader-size t) (type-elements t))
+(define (shader-kind t) (type-kind t))
+(define (shader-byte-size t) (type-byte-size t))
+(define (shader-stride . ts) (apply + (map type-elements ts)))
+(define (shader-stride-bytes . ts) (apply type-stride ts))
 
 ;; 旧的 alist 形状：(类型名 . 元素数)
-(define glsl-type-table (map (lambda (e) (cons (car e) (cadr e))) type-table))
+(define shader-type-table (map (lambda (e) (cons (car e) (cadr e))) type-table))
 
 ;; ---------- 新名（消歧） ----------
-;; glsl-element-count  元素/分量数（不是字节）
-;; glsl-storage-kind   存储类别 f32/f64/s32/u32（区别 interface 的 glsl-type-kind）
-;; glsl-stride-elements  按“元素”计的 stride（字节版是 glsl-stride-bytes）
-(define glsl-element-count glsl-size)
-(define glsl-storage-kind glsl-kind)
-(define glsl-stride-elements glsl-stride)
+;; shader-element-count  元素/分量数（不是字节）
+;; shader-storage-kind   存储类别 f32/f64/s32/u32（区别 interface 的 shader-type-kind）
+;; shader-stride-elements  按“元素”计的 stride（字节版是 shader-stride-bytes）
+(define shader-element-count shader-size)
+(define shader-storage-kind shader-kind)
+(define shader-stride-elements shader-stride)

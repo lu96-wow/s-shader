@@ -36,7 +36,7 @@ raco pkg install --link .
           (set! gl_Position (* uMVP (vec4 aPos 1.0))))))
 
 ;; 看生成的 GLSL
-(displayln (glsl-program-src vert))
+(displayln (shader-program-src vert))
 
 ;; CPU 侧用同名类型算矩阵，不碰裸 ffi
 (define M (mat4 1.0 0.0 0.0 0.0
@@ -132,12 +132,12 @@ void main() {
   - 变量表：`glsl-builtin-variable-names` / `glsl-builtin-variable-aliases`
   - 函数表：`glsl-builtin-function-names` / `glsl-builtin-function-aliases`
   - 关键字表：`glsl-qualifier-*`（qualifier）与 `glsl-layout-key-*`（layout key）
-  - 类型表：`types.rkt` 的 `glsl-type-alias-forms` / `glsl-type-canonical-name`
+  - 类型表：`types.rkt` 的 `type-alias-forms` / `type-canonical-name`
 - 用户标识符走通用 `-`→`_`；函数名/变量名/关键字/类型名不会误命中彼此的表。
-- 类型别名也在 CPU 侧生效：`(vec-3 …)`、`(glsl-size 'vec-3)`、`(glsl-struct v (vec-3 pos))`；
+- 类型别名也在 CPU 侧生效：`(vec-3 …)`、`(shader-size 'vec-3)`、`(shader-struct v (vec-3 pos))`；
   反射里的类型名统一是 canonical（`vec3` / `sampler2D`）。
-- 编译期反射保留**表面名**（`glsl-var-name`），同时提供 **GLSL 名**（`glsl-var-glsl-name`）；
-  `glsl-interface-ref` 两种拼写都接受。Racket 侧生成的 setter / 字段对齐用表面名，
+- 编译期反射保留**表面名**（`shader-var-name`），同时提供 **GLSL 名**（`shader-var-source-name`）；
+  `shader-interface-ref` 两种拼写都接受。Racket 侧生成的 setter / 字段对齐用表面名，
   和 GL 驱动打交道的 `uniform-location` 用 GLSL 名。
 - `foo-bar` 与 `foo_bar` 归一后同名，片段合并时会报冲突。
 - `raw` 是逃生舱：里面是原始 token，**不**做连字符转换（宏体用字符串时也一样）。
@@ -240,7 +240,7 @@ void main() {
 
 - 片段可**递归**（片段内 `(glsl-splice …)` 另一个片段）；
 - **词表共享**：片段定义的 `struct` 在合并后可见；
-- **interface 合并**：`glsl-program-interface` 含所有片段声明的 uniform/in/out；
+- **interface 合并**：`shader-program-interface` 含所有片段声明的 uniform/in/out；
 - **报错指向片段定义处**；
 - 重名（`struct` / 函数 / 顶层变量）在**编译期报错**。
 
@@ -256,13 +256,13 @@ void main() {
   (version 330 core)
   (layout (location 0) in vec3 aPos)
   (uniform mat4 uMVP))
-;; 运行期：vert 是 glsl-program；编译期：vert-interface 是接口表（供宏消费）
+;; 运行期：vert 是 shader-program；编译期：vert-interface 是接口表（供宏消费）
 ```
 
-`glsl-struct` 同样把 CPU 字段表绑为 `<Name>-fields`：
+`shader-struct` 同样把 CPU 字段表绑为 `<Name>-fields`：
 
 ```racket
-(glsl-struct vertex (vec3 pos) (vec3 normal) (vec2 uv))
+(shader-struct vertex (vec3 pos) (vec3 normal) (vec2 uv))
 (vertex-fields)   ; => ((pos vec3) (normal vec3) (uv vec2))
 ```
 
@@ -306,12 +306,12 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 规则：**同类进同类出**，跨精度/跨类报错（不做隐式提升）；向量宽度由长度自动得到；
 矩阵阶写进名字（`mat4-*`）；运算返回新值，`*set!` 原地写。
 
-### 顶点布局（`glsl-struct`）
+### 顶点布局（`shader-struct`）
 
 把 shader 里的 `struct` 镜像到 CPU 侧，自动给 stride / offset / size：
 
 ```racket
-(glsl-struct vertex (vec3 pos) (vec3 color))
+(shader-struct vertex (vec3 pos) (vec3 color))
 (define v0 (vertex (vec3 1.0 2.0 3.0) (vec3 1.0 0.0 0.0)))
 (vertex->f32vector v0)        ; 铺平成 f32vector（喂 VBO）
 (vertex-stride)               ; 24
@@ -322,10 +322,10 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 尺寸辅助：
 
 ```racket
-(glsl-size 'vec3)                 ; 3
-(glsl-byte-size 'vec3)            ; 12
-(glsl-stride-bytes 'vec3 'vec2)   ; 20
-(glsl-kind 'dvec3)                ; f64
+(shader-size 'vec3)                 ; 3
+(shader-byte-size 'vec3)            ; 12
+(shader-stride-bytes 'vec3 'vec2)   ; 20
+(shader-kind 'dvec3)                ; f64
 ```
 
 ### 向量数组与标量数组
@@ -345,28 +345,28 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 
 ## 接口反射
 
-`(glsl ...)` 的产物是 `glsl-program`，带类型化的接口信息和源映射。
+`(glsl ...)` 的产物是 `shader-program`，带类型化的接口信息和源映射。
 
 ```racket
-(define ifc (glsl-program-interface shader))
-(glsl-interface-vars ifc)                            ; 全部声明
-(glsl-interface-vars-with-qualifier ifc 'uniform)    ; 按限定符
-(glsl-interface-vars-with-kind ifc 'sampler)         ; 按类型 kind
-(glsl-interface-ref ifc 'uMVP)                       ; 按名字
-(glsl-var-name v) (glsl-var-glsl-name v)               ; 表面名 / 实际 GLSL 名
-(glsl-var-type v) (glsl-var-qualifiers v) (glsl-var-layout v)
-(glsl-type-name t) (glsl-type-kind t) (glsl-type-size t) (glsl-type-fields t)
+(define ifc (shader-program-interface shader))
+(shader-interface-vars ifc)                            ; 全部声明
+(shader-interface-vars-with-qualifier ifc 'uniform)    ; 按限定符
+(shader-interface-vars-with-kind ifc 'sampler)         ; 按类型 kind
+(shader-interface-ref ifc 'uMVP)                       ; 按名字
+(shader-var-name v) (shader-var-source-name v)               ; 表面名 / 实际 GLSL 名
+(shader-var-type v) (shader-var-qualifiers v) (shader-var-layout v)
+(shader-type-name t) (shader-type-kind t) (shader-type-size t) (shader-type-fields t)
 ```
 
-`glsl-interface` 是**只读**的：提供类型数据，不生成 setter、不合并多个 shader。
+`shader-interface` 是**只读**的：提供类型数据，不生成 setter、不合并多个 shader。
 
 ## 报错层（纯函数）
 
 编译报错的解析 / 定位 / 渲染在本包（不碰 opengl，便于离线复用）：
 
 ```racket
-(parse-gl-error-log log)     ; 原始日志 → gl-error 列表
-(locate-gl-error src err)    ; GLSL 行 → 覆盖它的顶层 form（行级）
+(parse-shader-error-log log)     ; 原始日志 → shader-error 列表
+(locate-shader-error src err)    ; GLSL 行 → 覆盖它的顶层 form（行级）
 (render-error log src located)  ; 三段式文本
 ```
 
@@ -385,12 +385,12 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
     rewrite.rkt             (glsl ...) 宏：表面语法 → core
     pretty.rkt              GLSL 文本美化
     interface.rkt           类型模型 + 接口反射
-    program.rkt             glsl-program 产物 + 源映射
+    program.rkt             shader-program 产物 + 源映射
   value/               Part 2 · (glsl) 外：CPU 值层（实现 + rename 成对）
     type.rkt / rename-type.rkt           类型与存储
     access.rkt / rename-access.rkt       取用
     construct.rkt / rename-construct.rkt 构造
-    layout.rkt / rename-layout.rkt       交错布局 / glsl-struct
+    layout.rkt / rename-layout.rkt       交错布局 / shader-struct
     buffer.rkt / rename-buffer.rkt       缓冲 / 向量数组 / u8,u16 数组
     vec.rkt / rename-vec.rkt             向量运算
     matrix.rkt / rename-matrix.rkt       矩阵运算

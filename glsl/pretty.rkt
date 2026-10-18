@@ -8,13 +8,13 @@
 ;;   } 之后仅 else / while / ; / , / 接口块实例名 保持同行，否则换行。
 ;;   行首 # 是预处理指令（#define/#ifdef/...），整行原样复制、不参与重排。
 ;;
-;; glsl-pretty-line-map：美化 + 在 marks（升序 raw 下标）处记录"该字符落在第几行"
-;;   —— 这是源映射的基础：glsl-program.rkt 靠它算出每个顶层 form 的行区间。
+;; shader-pretty-line-map：美化 + 在 marks（升序 raw 下标）处记录"该字符落在第几行"
+;;   —— 这是源映射的基础：shader-program.rkt 靠它算出每个顶层 form 的行区间。
 ;; ============================================================
 
 (require racket/string "core.rkt")   ; string-join / ident-char?
 
-(provide glsl-pretty)
+(provide shader-pretty)
 
 ;; ---------- 美化状态（不可变，靠 struct-copy 推进） ----------
 
@@ -121,7 +121,7 @@
      (pstate-append (pstate-start st) cs)]))
 
 ;; 美化：字符串 → 多行缩进文本（确定性纯函数）
-(define (glsl-pretty s)
+(define (shader-pretty s)
   (define n (string-length s))
   (define final (for/fold ([st (pstate '() "" 0 0 #f #f #f)]) ([i (in-range n)])
                   (pstate-advance s n st i)))

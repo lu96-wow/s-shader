@@ -25,27 +25,27 @@
 ### 2.1 现行 vs 目标
 
 **现行**（详见 [DESIGN.md](DESIGN.md) §2）：重写（S1–S6）在编译期，但**求值（S7）与组装（S8）在运行期**——
-`glsl` 生成 `(make-glsl-program (list part …) …)`，`part` 是运行期才求值的 `glsl-*` 调用；`glsl-unquote`
+`glsl` 生成 `(make-shader-program (list part …) …)`，`part` 是运行期才求值的 `glsl-*` 调用；`glsl-unquote`
 是唯一的运行期逃逸口。
 
-**目标**：**S1–S8 全部在编译期**，`glsl` 产出一个**编译期常量** `glsl-program`，生成的代码只是把它摆出来。
+**目标**：**S1–S8 全部在编译期**，`glsl` 产出一个**编译期常量** `shader-program`，生成的代码只是把它摆出来。
 
 ```
 surface (glsl …)
   │ S1 收集 / S2 归一
   │ S3 词表 / S4 接口反射 / S5 源信息 / S6 重写   ← 全是编译期纯函数
   │ S7 求值 glsl-* 原语 → 字符串                  ← 上移到编译期
-  │ S8 美化 / 组装 → glsl-program 值              ← 上移到编译期
+  │ S8 美化 / 组装 → shader-program 值              ← 上移到编译期
   ▼
-(quote <program-datum>)  →  运行期只 datum->glsl-program
+(quote <program-datum>)  →  运行期只 datum->shader-program
 ```
 
 ### 2.2 带来的简化
 
 - **`glsl-unquote` 移除**：不再需要「摘出使用侧语法 + splice-marker + `tree->syntax`」这一整套运行期拼接机制。
-- `glsl` 宏退化为一个**纯 phase-1 函数**：surface datum 进 → `glsl-program` 数据出。
+- `glsl` 宏退化为一个**纯 phase-1 函数**：surface datum 进 → `shader-program` 数据出。
 - `glsl-*` 原语是纯字符串函数，直接 `(require (for-syntax …))` 后在展开期调用（不再生成运行期代码）。
-- 运行期只剩「从字面量重建 `glsl-program`」（`datum->glsl-program`），无逻辑。
+- 运行期只剩「从字面量重建 `shader-program`」（`datum->shader-program`），无逻辑。
 
 ### 2.3 收益
 
@@ -170,7 +170,7 @@ surface (glsl …)
           (set! gl_Position (vec4 aPos 1.0)))))
 
 ;; 编译期就算好：interface 完整、源映射可回溯、冲突在展开期报错
-(glsl-interface-vars (glsl-program-interface shader))   ; uLight / uFogDensity / uEye
+(shader-interface-vars (shader-program-interface shader))   ; uLight / uFogDensity / uEye
 ```
 
 **编译期参数化片段**（宏生成 chunk）：
@@ -190,7 +190,7 @@ surface (glsl …)
 **步骤**
 1. ✅ **把 `glsl` 改为纯编译期变换**（决策 4）：
    - `glsl-*` 原语在展开期直接调用，S7/S8 上移到编译期；
-   - 产出 `(datum->glsl-program '<program-datum>)`（新增 `glsl-program->datum`/`datum->glsl-program`）；
+   - 产出 `(datum->shader-program '<program-datum>)`（新增 `shader-program->datum`/`datum->shader-program`）；
    - **移除 `glsl-unquote`**（含 `walk`/splice-marker/`tree->syntax`）与相关测试。
 2. ✅ **内部数据统一为 `entries`**（`datum + source`），编译期流程抽成 `entries->program`。
 3. ✅ **`glsl-splice`**：`forms->entries` 识别顶层 `(glsl-splice …)`，`local-expand` 取 `(quote chunk)`，拼接 entries。

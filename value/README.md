@@ -5,10 +5,10 @@
 
 | 逻辑 | 实现 | rename（GLSL 名） |
 |---|---|---|
-| 类型与存储 | `type.rkt` | `rename-type.rkt`：`glsl-size` `glsl-kind` `glsl-byte-size` `glsl-stride-bytes` |
+| 类型与存储 | `type.rkt` | `rename-type.rkt`：`shader-size` `shader-kind` `shader-byte-size` `shader-stride-bytes` |
 | 取用（索引读写） | `access.rkt` | `rename-access.rkt`：`vcount` `vref` `vset!` `vx…vw`、`mat4-ref` `mat4-set!` |
 | 构造 | `construct.rkt` | `rename-construct.rkt`：`vec2…bvec4`、`mat2…dmat4` |
-| 交错布局 | `layout.rkt` | `rename-layout.rkt`：`glsl-struct`（另暴露编译期字段表 `<Name>-fields`） |
+| 交错布局 | `layout.rkt` | `rename-layout.rkt`：`shader-struct`（另暴露编译期字段表 `<Name>-fields`） |
 | 缓冲 / 拼接 | `buffer.rkt` | `rename-buffer.rkt`：`vec-array`、`concat-vecs`、`u8-array`、`u16-array` |
 | 向量运算 | `vec.rkt` | `rename-vec.rkt`：`vadd` `vdot` `vnormalize` … |
 | 矩阵运算 | `matrix.rkt` | `rename-matrix.rkt`：`mat4-mul` `mat4-inverse` … |
@@ -27,7 +27,7 @@
 | `u8` | `u8vector`（即 `bytes`） | 无（CPU 像素数组 `u8-array`） |
 
 `type-table` 只收录**有 CPU 表示**的 GLSL 类型；完整类型目录在 `glsl/interface.rkt`。
-类型查询接受别名：`(glsl-size 'vec-3)`、`(type-kind 'mat-4)`、`(glsl-struct v (vec-3 pos))`
+类型查询接受别名：`(shader-size 'vec-3)`、`(type-kind 'mat-4)`、`(shader-struct v (vec-3 pos))`
 都在 `types.rkt` 里先规范成 canonical（`vec3` / `mat4`）。
 
 ## 依赖方向
@@ -44,7 +44,7 @@ rename-*.rkt → 只 require 对应实现
 - 实现用 Racket 传统名（`vec-add`、`matrix-ref`、`vec-buffer`）——**不随 `#lang shader/glsl` 导出**。
 - rename 用 GLSL 名（`vadd`、`mat4-ref`、`vec-array`）——随 `#lang shader/glsl` 导出。
 - 取内部存储（零拷贝）用 `X-data`；真正类型转换用 `->type`。
-- `glsl-struct` 的字段名是 Racket 符号，可直接用连字符（`model-pos`）；
+- `shader-struct` 的字段名是 Racket 符号，可直接用连字符（`model-pos`）；
   字段类型也可用别名（`vec-3`），编译期会规范成 canonical 存进 `<Name>-fields`。
 - 与 shader `in` 对齐时（opengl 包的 `glsl-vertex-layout!`）按归一后的 GLSL 名比较。
 

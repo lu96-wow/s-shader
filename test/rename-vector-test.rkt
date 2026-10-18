@@ -110,22 +110,22 @@
               '(2.0 0.0 0.0 0.0  0.0 2.0 0.0 0.0  0.0 0.0 2.0 0.0  0.0 0.0 0.0 2.0))
 
 ;; ---------- 尺寸 / 步长 ----------
-(check-equal? (glsl-size 'vec3) 3)
-(check-equal? (glsl-byte-size 'vec3) 12)
-(check-equal? (glsl-stride 'vec3 'vec2) 5)
-(check-equal? (glsl-stride-bytes 'vec3 'vec2) 20)
-(check-equal? (glsl-stride-bytes 'vec3 'vec3 'float) 28)   ; 实例数组每行 7 float
-(check-equal? (glsl-stride-bytes 'vec3) 12)                 ; 前缀偏移 = 跳过 vec3
+(check-equal? (shader-size 'vec3) 3)
+(check-equal? (shader-byte-size 'vec3) 12)
+(check-equal? (shader-stride 'vec3 'vec2) 5)
+(check-equal? (shader-stride-bytes 'vec3 'vec2) 20)
+(check-equal? (shader-stride-bytes 'vec3 'vec3 'float) 28)   ; 实例数组每行 7 float
+(check-equal? (shader-stride-bytes 'vec3) 12)                 ; 前缀偏移 = 跳过 vec3
 ;; double 系：分量 8 字节
-(check-equal? (glsl-size 'dvec3) 3)
-(check-equal? (glsl-byte-size 'dvec3) 24)
-(check-equal? (glsl-byte-size 'dmat4) 128)
-(check-equal? (glsl-stride-bytes 'vec3 'dvec3) 36)
-(check-exn exn:fail? (lambda () (glsl-size 'sampler2D)))    ; 无 CPU 表示
+(check-equal? (shader-size 'dvec3) 3)
+(check-equal? (shader-byte-size 'dvec3) 24)
+(check-equal? (shader-byte-size 'dmat4) 128)
+(check-equal? (shader-stride-bytes 'vec3 'dvec3) 36)
+(check-exn exn:fail? (lambda () (shader-size 'sampler2D)))    ; 无 CPU 表示
 
-;; ---------- glsl-struct：交错记录 ----------
+;; ---------- shader-struct：交错记录 ----------
 ;; 具名字段（(类型 名字)，与 shader 一致）：生成构造器 / 访问器 / 铺平 / stride / offset / size
-(glsl-struct instance
+(shader-struct instance
   (vec3 offset)
   (vec3 color)
   (float phase))
@@ -148,14 +148,14 @@
 (check-exn exn:fail? (lambda () (instance-field-offset 'nope)))
 
 ;; 纯向量字段的 struct（无标量）也能铺平
-(glsl-struct vert (vec3 pos) (vec3 nrm))
+(shader-struct vert (vec3 pos) (vec3 nrm))
 (check-equal? (lv (vert->f32vector (vert (vec3 1.0 2.0 3.0) (vec3 4.0 5.0 6.0))))
               '(1.0 2.0 3.0 4.0 5.0 6.0))
 (check-equal? (vert-stride) 24)
 (check-equal? (vert-field-offset 'nrm) 12)
 
 ;; 空 struct → 报错
-(check-exn exn:fail? (lambda () (eval '(glsl-struct Empty))))
+(check-exn exn:fail? (lambda () (eval '(shader-struct Empty))))
 
 ;; ---------- concat-dvecs：double 拼装 ----------
 (check-equal? (ld (concat-dvecs (dvec2 1.0 2.0) (dvec3 3.0 4.0 5.0)))
@@ -165,8 +165,8 @@
 (check-equal? (concat-dvecs! ddst (list (dvec3 1.0 2.0 3.0) (dvec2 4.0 5.0))) 5)
 (check-equal? (ld ddst) '(1.0 2.0 3.0 4.0 5.0 0.0))
 
-;; ---------- glsl-struct：double 字段 → ->f64vector ----------
-(glsl-struct dparticle
+;; ---------- shader-struct：double 字段 → ->f64vector ----------
+(shader-struct dparticle
   (dvec3 position)
   (dvec2 velocity)
   (double mass))
@@ -181,26 +181,26 @@
 (check-exn exn:fail? (lambda () (dparticle-field-offset 'nope)))
 
 ;; 混用 float/double 字段 → 宏展开时报错（不是运行时报错）
-(check-exn exn:fail? (lambda () (eval '(glsl-struct mixed-vertex (vec3 a) (dvec3 b)))))
+(check-exn exn:fail? (lambda () (eval '(shader-struct mixed-vertex (vec3 a) (dvec3 b)))))
 
-;; ---------- glsl-struct：整数 / 布尔字段（修复：以前会报错或写错字节）----------
+;; ---------- shader-struct：整数 / 布尔字段（修复：以前会报错或写错字节）----------
 ;; 全 int → s32vector
-(glsl-struct irec (ivec3 a) (int b))
+(shader-struct irec (ivec3 a) (int b))
 (check-true (s32vector? (irec->s32vector (irec (ivec3 1 2 3) 7))))
 (check-equal? (li (irec->s32vector (irec (ivec3 1 2 3) 7))) '(1 2 3 7))
 (check-equal? (irec-stride) 16)
 (check-equal? (irec-field-offset 'b) 12)
 
 ;; 全 uint/uvec → u32vector
-(glsl-struct urec (uvec3 a) (uint b))
+(shader-struct urec (uvec3 a) (uint b))
 (check-equal? (lu (urec->u32vector (urec (uvec3 1 2 3) 9))) '(1 2 3 9))
 
 ;; bool 标量 → u32（0/1）
-(glsl-struct brec (bvec3 a) (bool b))
+(shader-struct brec (bvec3 a) (bool b))
 (check-equal? (lu (brec->u32vector (brec (bvec3 #t #f #t) #t))) '(1 0 1 1))
 
 ;; 混合类别（float + int）→ u8vector；int 字段必须是整数字节，不是 float 字节
-(glsl-struct mrec (vec3 pos) (int idx))
+(shader-struct mrec (vec3 pos) (int idx))
 (define mrec-bytes (mrec->bytes (mrec (vec3 1.0 2.0 3.0) 7)))
 (check-true (u8vector? mrec-bytes))
 (check-equal? (u8vector-length mrec-bytes) 16)
@@ -212,7 +212,7 @@
 (check-equal? (mrec-stride) 16)
 
 ;; double + int 也是混合 → u8vector，int 部分仍是整数字节
-(glsl-struct dmrec (dvec3 pos) (int idx))
+(shader-struct dmrec (dvec3 pos) (int idx))
 (define dmrec-bytes (dmrec->bytes (dmrec (dvec3 1.0 2.0 3.0) 5)))
 (check-true (u8vector? dmrec-bytes))
 (check-equal? (integer-bytes->integer (bv->bytes dmrec-bytes 24 4) #t (system-big-endian?)) 5)
@@ -249,16 +249,16 @@
 (check-equal? (li (concat-ivecs (ivec2 1 2) (ivec2 3 4))) '(1 2 3 4))
 (check-equal? (lu (concat-uvecs (uvec2 1 2))) '(1 2))
 
-;; ---------- glsl-struct 新生成名 ----------
-(glsl-struct p3 (vec3 pos) (vec3 color))
+;; ---------- shader-struct 新生成名 ----------
+(shader-struct p3 (vec3 pos) (vec3 color))
 (check-equal? (p3-stride-bytes) 24)
 (check-equal? (p3-field-components 'pos) 3)
 (check-equal? (f32vector-length (p3->f32vector (p3 (vec3 1.0 2.0 3.0) (vec3 4.0 5.0 6.0)))) 6)
 
 ;; ---------- 类型消歧新名 ----------
-(check-equal? (glsl-element-count 'vec3) 3)
-(check-equal? (glsl-storage-kind 'vec3) 'f32)
-(check-equal? (glsl-stride-elements 'vec3 'vec2) 5)
+(check-equal? (shader-element-count 'vec3) 3)
+(check-equal? (shader-storage-kind 'vec3) 'f32)
+(check-equal? (shader-stride-elements 'vec3 'vec2) 5)
 
 ;; ---------- u8 / u16 标量数组（索引 / 像素） ----------
 (define idx (u16-array 0 1 2 2 3 0))

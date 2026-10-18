@@ -15,7 +15,7 @@
 ;;   u16 → 无 GLSL 对应（索引缓冲） （u16vector）
 ;;   u8  → 无 GLSL 对应（纹理像素） （u8vector，即 bytes）
 ;;
-;; 命名：[Racket 传统]。GLSL 名（glsl-size/glsl-kind/…）在 rename-type.rkt。
+;; 命名：[Racket 传统]。GLSL 名（shader-size/shader-kind/…）在 rename-type.rkt。
 ;; ============================================================
 
 (require ffi/vector
@@ -52,7 +52,7 @@
    rectangular-matrix-table))
 
 ;; 类型名先规范化：vec-3 / vec_3 → vec3；未知类型原样。
-(define (type-canonical t) (glsl-type-canonical-symbol t))
+(define (type-canonical t) (type-canonical-symbol t))
 
 (define (type-entry t)
   (or (assq (type-canonical t) type-table)

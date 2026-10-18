@@ -33,10 +33,10 @@
   │ rewrite.rkt：syntax->datum
   │ rewrite.rkt：rw-top/rw-stmt/rw-expr/rw-decl/rw-fn（直接调用 glsl-* 原语）
   ▼ 字符串片段（无换行；预处理指令带 \n）
-  │ program.rkt：make-glsl-program → glsl-pretty + 行级源映射 + 接口反射
-  ▼ glsl-program 值（编译期常量）
+  │ program.rkt：make-shader-program → shader-pretty + 行级源映射 + 接口反射
+  ▼ shader-program 值（编译期常量）
   │ 生成代码
-  ▼ (datum->glsl-program '<program-datum>)   —— 运行期只重建、无逻辑
+  ▼ (datum->shader-program '<program-datum>)   —— 运行期只重建、无逻辑
 ```
 
 | 逻辑 | 文件 | 约束 |
@@ -46,12 +46,12 @@
 | 共享类型词汇表 | `vocab/type-names.rkt` | canonical 类型名 + 类型别名；语言层与值层共享 |
 | 表面语法 → GLSL（`(glsl ...)` 宏） | `glsl/rewrite.rkt` | **完全编译期变换**；无运行期求值 |
 | 美化 | `glsl/pretty.rkt` | 纯函数；按 `; { } ( )` 换行缩进；行首 `#` 整行原样 |
-| 类型模型 / 接口反射 | `glsl/interface.rkt` | `glsl-type` / `glsl-var`；只读、不组合 |
+| 类型模型 / 接口反射 | `glsl/interface.rkt` | `shader-type` / `shader-var`；只读、不组合 |
 | 产物 + 源映射 | `glsl/program.rkt` | 源映射只到**行**；行区间由各 form 美化行数累计；datum 往返 |
 
 几个关键点：
 - **全部在编译期**：重写、美化、行映射、接口反射都在展开期完成；产物是编译期常量，
-  运行期仅 `datum->glsl-program` 重建。
+  运行期仅 `datum->shader-program` 重建。
 - **没有运行期求值**：`glsl-unquote` 已移除；动态 shader 走 opengl 包的 `shader-compile`（裸字符串）。
 - 不 require `value/`、不 require `opengl/`。
 
@@ -73,20 +73,20 @@
 - **规范拼写永远可用**：`gl_Position`、`textureSize`、`readonly`、`vec3` 原样通过。
 - **用户标识符兜底**：未命中任何表的符号走通用 `-`→`_`（struct/block 名、字段、普通变量…）。
 - **校验**：转换结果必须是 `[A-Za-z_][A-Za-z0-9_]*`，否则展开期报错。
-- **类型别名先规范再反射**：`builtin-glsl-type` 接收别名，但 `glsl-type-name` 永远是 canonical
+- **类型别名先规范再反射**：`builtin-type-of` 接收别名，但 `shader-type-name` 永远是 canonical
   （`vec3` / `sampler2D`），这样接口反射、CPU 类型表、uniform setter 用同一套键。
-- **单一来源**：`rewrite.rkt` 生成文本用它；`interface.rkt` 的 `glsl-var-glsl-name` 也用它。
+- **单一来源**：`rewrite.rkt` 生成文本用它；`interface.rkt` 的 `shader-var-source-name` 也用它。
   这样不会出现「声明写成 `u_model_view`、反射却报 `u-model-view`」的漂移。
 
 #### 两个身份：表面名 vs GLSL 名
 
-`glsl-var` **保留表面名**（`glsl-var-name`），并派生 GLSL 名（`glsl-var-glsl-name`）：
+`shader-var` **保留表面名**（`shader-var-name`），并派生 GLSL 名（`shader-var-source-name`）：
 
-- 表面名用于 Racket 侧：生成 setter 名（`set-u-model-view!`）、与 CPU `glsl-struct` 字段对齐、
+- 表面名用于 Racket 侧：生成 setter 名（`set-u-model-view!`）、与 CPU `shader-struct` 字段对齐、
   错误信息、编译期表。
 - GLSL 名用于和 GL 驱动/文本打交道：`uniform-location`、shader 源码、内建变量。
-- `glsl-interface-ref` 同时接受两种拼写；`glsl-var-layout-ref` 的 layout 键也同时接受两种。
-- CPU `glsl-struct` 的字段类型在编译期规范成 canonical，所以 `<Name>-fields` 里存 `vec3`，
+- `shader-interface-ref` 同时接受两种拼写；`shader-var-layout-ref` 的 layout 键也同时接受两种。
+- CPU `shader-struct` 的字段类型在编译期规范成 canonical，所以 `<Name>-fields` 里存 `vec3`，
   而不是用户写的 `vec-3`。
 
 细节见 [`glsl/README.md`](glsl/README.md) 与
@@ -100,10 +100,10 @@
 
 | 逻辑 | 实现（Racket 名） | rename（GLSL 名） |
 |---|---|---|
-| 类型与存储 | `type.rkt` | `rename-type.rkt`：`glsl-size/kind/byte-size/stride…` |
+| 类型与存储 | `type.rkt` | `rename-type.rkt`：`shader-size/kind/byte-size/stride…` |
 | 取用 | `access.rkt` | `rename-access.rkt`：`vcount/vref/vset!/vx…vw`、`mat4-ref/set!` |
 | 构造 | `construct.rkt` | `rename-construct.rkt`：`vec2…bvec4 / mat2…dmat4`，以及 `vec-3 / mat-4` 别名 |
-| 交错布局 | `layout.rkt` | `rename-layout.rkt`：`glsl-struct` |
+| 交错布局 | `layout.rkt` | `rename-layout.rkt`：`shader-struct` |
 | 缓冲 / 拼接 | `buffer.rkt` | `rename-buffer.rkt`：`vec-array`、`concat-vecs`、`u8-array`、`u16-array` |
 | 向量运算 | `vec.rkt` | `rename-vec.rkt`：`vadd/vdot/…` |
 | 矩阵运算 | `matrix.rkt` | `rename-matrix.rkt`：`mat4-mul/…` |
@@ -133,8 +133,8 @@
 
 | 函数 | 作用 |
 |---|---|
-| `parse-gl-error-log` | 原始日志 → `gl-error` 列表 |
-| `locate-gl-error` | GLSL 行 → 覆盖它的顶层 form（**行级**） |
+| `parse-shader-error-log` | 原始日志 → `shader-error` 列表 |
+| `locate-shader-error` | GLSL 行 → 覆盖它的顶层 form（**行级**） |
 | `render-error` | 三段式文本（GL 日志 / 美化 GLSL + 报错行 / 源文件对应行） |
 
 触发与抛异常在 opengl 包的 `shader-compile`。
@@ -146,7 +146,7 @@
 | 名字形态 | 归属 | 例子 |
 |---|---|---|
 | 裸名 / `?` / `!` / `->` | Racket / `racket/base`（**不遮蔽**） | `length`、`set!`、`exact->inexact` |
-| `glsl-*` | 本 DSL 的语言层概念 | `glsl-size`、`glsl-struct`、`glsl-program`、`glsl-interface`、`glsl-name`、`glsl-function-name`、`glsl-qualifier-name`、`glsl-layout-key-name`、`glsl-type-canonical-name` |
+| `glsl-*` | 本 DSL 的语言层概念 | `shader-size`、`shader-struct`、`shader-program`、`shader-interface`、`glsl-name`、`glsl-function-name`、`glsl-qualifier-name`、`glsl-layout-key-name`、`type-canonical-name` |
 | `vecN`/`dvecN`/`ivecN`/`uvecN`/`bvecN`、`matN`/`dmatN` | GLSL 类型构造器 | `vec3`、`mat4`、`dvec3` |
 | `v*` | 向量取用 / 运算 | `vx`、`vref`、`vadd`、`vdot` |
 | `matN-*` | 矩阵取用 / 运算 | `mat4-ref`、`mat4-mul` |
@@ -169,7 +169,7 @@
 | 2 | `rewrite.rkt` + `names.rkt` | surface datum → core datum（标识符先归一，再走 `glsl-*` 调用） |
 | 3 | `core.rkt` | core datum（求值）→ GLSL 字符串片段 |
 | 4 | `pretty.rkt` | 片段 → 多行缩进文本 |
-| 5 | `program.rkt` | 片段+源信息+接口 → `glsl-program` |
+| 5 | `program.rkt` | 片段+源信息+接口 → `shader-program` |
 
 类型信息：`interface.rkt`（完整 GLSL 类型目录 + 声明反射，展开期算好）
 → `program.rkt`（quote 进代码，运行期重建）→ `error.rkt`（用行级源映射定位）。
@@ -183,7 +183,7 @@
 | ① surface | `(uniform vec4 v)` / `(vec4 a 1.0)` | datum 符号，宏按**类型名清单**匹配 |
 | ② core 原语 | `(glsl-decl '("uniform") "vec4" "v")` / `(glsl-ctor "vec4" a 1.0)` | 参数是字符串 |
 | ③ 文本 | `uniform vec4 v;` / `vec4(a, 1.0)` | 字符串 |
-| ④ 类型模型 | `builtin-glsl-type 'vec4` | `glsl-type`：vector / vec4 / base float / dims (4) / size 16 |
+| ④ 类型模型 | `builtin-type-of 'vec4` | `shader-type`：vector / vec4 / base float / dims (4) / size 16 |
 | ⑤ 存储属性 | `type-entry 'vec4` | `(vec4 4 f32)`，`type-byte-size` = 16 |
 | ⑥ CPU 构造器 | `(vec4 1.0 2.0 3.0 1.0)` | `make-f32-vec` → 裸 `f32vector` |
 

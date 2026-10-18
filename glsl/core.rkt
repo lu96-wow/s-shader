@@ -15,7 +15,7 @@
 ;; 分层：
 ;;   core.rkt          本层：字符串生成原语
 ;;   pretty.rkt        美化（字符串 → 多行缩进文本）
-;;   glsl-program.rkt  (glsl ...) 的产物：带源映射的 GLSL 程序
+;;   shader-program.rkt  (glsl ...) 的产物：带源映射的 GLSL 程序
 ;;   rewrite.rkt       (glsl ...) 宏（表面语法 → core 调用）
 ;; ============================================================
 
@@ -39,7 +39,7 @@
  glsl-stmt glsl-block glsl-if glsl-for glsl-while glsl-do-while
  glsl-switch glsl-break glsl-continue glsl-return glsl-discard
  ;; 函数 / 结构
- glsl-param glsl-fn glsl-field-decl glsl-struct-decl)
+ glsl-param glsl-fn glsl-field-decl shader-struct-decl)
 
 ;; ---------- 内部工具 ----------
 
@@ -51,7 +51,7 @@
      (error 'glsl "GLSL 没有有理数字面量：~s。请写小数（如 0.5）或用 (/ 1.0 2.0)" x)]
     [else (~a x)]))
 
-;; GLSL 标识符字符（pretty 的词边界 / gl-error 的标识符识别共用）
+;; GLSL 标识符字符（pretty 的词边界 / shader-error 的标识符识别共用）
 (define (ident-char? c)
   (or (char-alphabetic? c) (char-numeric? c) (char=? c #\_)))
 
@@ -76,7 +76,7 @@
 
 ;; ---------- 0. 拼装 ----------
 
-;; 拼装：片段之间用空格分隔（换行交给 pretty.rkt 的 glsl-pretty）
+;; 拼装：片段之间用空格分隔（换行交给 pretty.rkt 的 shader-pretty）
 (define (glsl-shader . parts)
   (string-join (map ->str parts) " "))
 
@@ -230,7 +230,7 @@
   (format "do ~a while (~a);" (wrap-block (join-spaces body)) (->str cond)))
 
 ;; switch：cases = (list (list "1" "{...}") ...)，default = "{...}" 或 #f
-;; 每个 case 体是块，glsl-pretty 靠 {} 自动排版
+;; 每个 case 体是块，shader-pretty 靠 {} 自动排版
 (define (glsl-switch test cases [default #f])
   (format "switch (~a) { ~a ~a }"
           (->str test)
@@ -261,6 +261,6 @@
 (define (glsl-field-decl type name)
   (format "~a ~a;" (->str type) (->str name)))
 
-(define (glsl-struct-decl name . fields)
+(define (shader-struct-decl name . fields)
   (format "struct ~a { ~a };"
           (->str name) (join-spaces fields)))

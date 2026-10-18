@@ -5,7 +5,7 @@
 ;;
 ;; 这是**类型词汇表**的共享底座：
 ;;   - interface.rkt 用它做完整类型目录 / 反射；
-;;   - value/type.rkt 用它把 CPU 类型查询（glsl-size / type-kind …）规范化。
+;;   - value/type.rkt 用它把 CPU 类型查询（shader-size / type-kind …）规范化。
 ;;
 ;; ★ 与 glsl/names.rkt 的分工：
 ;;   names.rkt     处理**标识符**（变量 / 函数 / 关键字别名）
@@ -26,13 +26,13 @@
 
 (require racket/list racket/string)
 
-(provide builtin-glsl-type-names
+(provide builtin-type-names
          builtin-scalar-names builtin-vector-names
          builtin-matrix-square-names builtin-matrix-rect-names
          builtin-sampler-names builtin-image-names
-         glsl-builtin-type? glsl-type-alias?
-         glsl-type-canonical-name glsl-type-canonical-symbol
-         glsl-type-alias-forms)
+         builtin-type? type-alias?
+         type-canonical-name type-canonical-symbol
+         type-alias-forms)
 
 ;; ---------- 规范类型名清单（唯一来源） ----------
 (define builtin-scalar-names '(float int uint bool double void atomic_uint))
@@ -74,7 +74,7 @@
     uimage1DArray uimage2DArray uimageCubeArray
     uimage2DMS uimage2DMSArray uimageBuffer))
 
-(define builtin-glsl-type-names
+(define builtin-type-names
   (append builtin-scalar-names builtin-vector-names
           builtin-matrix-square-names builtin-matrix-rect-names
           builtin-sampler-names builtin-image-names))
@@ -139,17 +139,17 @@
 
 ;; ---------- 别名表 ----------
 (define canonical-table
-  (for/hash ([n (in-list builtin-glsl-type-names)]) (values n #t)))
+  (for/hash ([n (in-list builtin-type-names)]) (values n #t)))
 
 (define alias-table
-  (for*/fold ([h (hash)]) ([n (in-list builtin-glsl-type-names)]
+  (for*/fold ([h (hash)]) ([n (in-list builtin-type-names)]
                            [p (in-list (or (alias-forms-for n) (quote ())))])
     (define alias (car p))
     (when (hash-has-key? h alias)
       (error 'type-names "类型别名冲突：~a → ~a" alias n))
     (hash-set h alias n)))
 
-(define glsl-type-alias-forms
+(define type-alias-forms
   (sort (for/list ([(alias canonical) (in-hash alias-table)])
           (cons alias canonical))
         (lambda (a b) (string<? (symbol->string (car a)) (symbol->string (car b))))))
@@ -163,8 +163,8 @@
     [else (error who "需要 symbol 或 string，实际 ~s" x)]))
 
 ;; 规范/别名 → canonical 字符串；不是内建类型返回 #f。
-(define (glsl-type-canonical-name x)
-  (define s (as-string 'glsl-type-canonical-name x))
+(define (type-canonical-name x)
+  (define s (as-string 'type-canonical-name x))
   (define sym (string->symbol s))
   (cond
     [(hash-ref canonical-table sym #f) s]
@@ -172,16 +172,16 @@
     [else #f]))
 
 ;; 规范/别名 → canonical symbol；未知类型原样返回（让上层报「未知类型」）。
-(define (glsl-type-canonical-symbol x)
-  (define s (as-string 'glsl-type-canonical-symbol x))
-  (string->symbol (or (glsl-type-canonical-name s) s)))
+(define (type-canonical-symbol x)
+  (define s (as-string 'type-canonical-symbol x))
+  (string->symbol (or (type-canonical-name s) s)))
 
 ;; 是不是内建类型（规范名或别名）
-(define (glsl-builtin-type? x)
+(define (builtin-type? x)
   (and (or (symbol? x) (string? x))
-       (and (glsl-type-canonical-name x) #t)))
+       (and (type-canonical-name x) #t)))
 
 ;; 这个拼写是不是别名（而不是 canonical 名）
-(define (glsl-type-alias? x)
-  (define s (as-string 'glsl-type-alias? x))
+(define (type-alias? x)
+  (define s (as-string 'type-alias? x))
   (and (hash-ref alias-table (string->symbol s) #f) #t))

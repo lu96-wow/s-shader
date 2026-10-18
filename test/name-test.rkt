@@ -8,7 +8,7 @@
 ;;   - 用户标识符：wow-name-type → wow_name_type（变量/函数/参数/struct/字段）
 ;;   - 内建变量别名：gl-position → gl_Position、gl-frag-coord → gl_FragCoord ...
 ;;   - 规范拼写仍然可用：gl_Position / foo_bar
-;;   - interface：表面名与 GLSL 名双身份（glsl-var-name / glsl-var-glsl-name）
+;;   - interface：表面名与 GLSL 名双身份（shader-var-name / shader-var-source-name）
 ;;   - 编译期冲突：foo-bar 与 foo_bar 都归一成 foo_bar → 报错
 ;;   - 非法标识符：只能在 Racket 里写、不能进 GLSL 的字符 → 报错
 ;; ============================================================
@@ -20,8 +20,8 @@
          "../types.rkt")
 
 (define-syntax-rule (check-glsl raw (form ...))
-  (check-equal? (glsl-program-src (glsl form ...))
-                (glsl-pretty raw)))
+  (check-equal? (shader-program-src (glsl form ...))
+                (shader-pretty raw)))
 
 ;; ---------- ① glsl-name 直接转换 ----------
 (check-equal? (glsl-name 'wow-name-type) "wow_name_type")
@@ -135,40 +135,40 @@
         (out vec3 v-color)
         (define (main) void)))
 
-(define ifc (glsl-program-interface shader))
-(define (var name) (glsl-interface-ref ifc name))
+(define ifc (shader-program-interface shader))
+(define (var name) (shader-interface-ref ifc name))
 
 ;; 表面名保留连字符，GLSL 名归一
-(check-equal? (glsl-var-name (var 'u-model-view)) 'u-model-view)
-(check-equal? (glsl-var-glsl-name (var 'u-model-view)) 'u_model_view)
-(check-equal? (glsl-var-name (var 'a-pos)) 'a-pos)
-(check-equal? (glsl-var-glsl-name (var 'a-pos)) 'a_pos)
+(check-equal? (shader-var-name (var 'u-model-view)) 'u-model-view)
+(check-equal? (shader-var-source-name (var 'u-model-view)) 'u_model_view)
+(check-equal? (shader-var-name (var 'a-pos)) 'a-pos)
+(check-equal? (shader-var-source-name (var 'a-pos)) 'a_pos)
 
 ;; 按表面名或 GLSL 名都能查到同一条声明
 (check-eq? (var 'u-model-view) (var 'u_model_view))
 (check-eq? (var "u-model-view") (var 'u-model-view))
 (check-eq? (var 'a-pos) (var 'a_pos))
-(check-equal? (glsl-type-glsl-name (glsl-var-type (var 'u-model-view))) 'mat4)
+(check-equal? (shader-type-source-name (shader-var-type (var 'u-model-view))) 'mat4)
 
 ;; layout 键归一：local-size-x → local_size_x；两种写法都能查
-(check-equal? (glsl-var-layout (var 'a-work)) '((local_size_x 8)))
-(check-equal? (glsl-var-layout-ref (var 'a-work) 'local-size-x) 8)
-(check-equal? (glsl-var-layout-ref (var 'a-work) 'local_size_x) 8)
+(check-equal? (shader-var-layout (var 'a-work)) '((local_size_x 8)))
+(check-equal? (shader-var-layout-ref (var 'a-work) 'local-size-x) 8)
+(check-equal? (shader-var-layout-ref (var 'a-work) 'local_size_x) 8)
 
 ;; 类型名也保留表面名，同时可得到 GLSL 拼写
-(check-equal? (glsl-var-name (var 'uTime)) 'uTime)
-(check-equal? (glsl-var-glsl-name (var 'uTime)) 'uTime)
+(check-equal? (shader-var-name (var 'uTime)) 'uTime)
+(check-equal? (shader-var-source-name (var 'uTime)) 'uTime)
 
 ;; struct 类型名 / 字段同样有双身份
 (define shader2
   (glsl (struct My-Light (vec3 light-pos) (float power))
         (uniform My-Light u-light)))
-(define v2 (glsl-interface-ref (glsl-program-interface shader2) 'u-light))
-(check-equal? (glsl-var-name v2) 'u-light)
-(check-equal? (glsl-var-glsl-name v2) 'u_light)
-(check-equal? (glsl-type-name (glsl-var-type v2)) 'My-Light)
-(check-equal? (glsl-type-glsl-name (glsl-var-type v2)) 'My_Light)
-(check-equal? (map glsl-var-glsl-name (glsl-type-fields (glsl-var-type v2)))
+(define v2 (shader-interface-ref (shader-program-interface shader2) 'u-light))
+(check-equal? (shader-var-name v2) 'u-light)
+(check-equal? (shader-var-source-name v2) 'u_light)
+(check-equal? (shader-type-name (shader-var-type v2)) 'My-Light)
+(check-equal? (shader-type-source-name (shader-var-type v2)) 'My_Light)
+(check-equal? (map shader-var-source-name (shader-type-fields (shader-var-type v2)))
               '(light_pos power))
 
 ;; ---------- ⑥ 编译期冲突：归一后同名 ----------
@@ -238,37 +238,37 @@
   (define (main) void)))
 
 ;; ---------- ⑩ 内建类型别名（共享类型词汇表） ----------
-(check-equal? (glsl-type-canonical-name 'vec-3) "vec3")
-(check-equal? (glsl-type-canonical-name 'vec_3) "vec3")
-(check-equal? (glsl-type-canonical-name 'ivec-2) "ivec2")
-(check-equal? (glsl-type-canonical-name 'mat-3x2) "mat3x2")
-(check-equal? (glsl-type-canonical-name 'mat-2x2) "mat2x2")
-(check-equal? (glsl-type-canonical-name 'dmat-4) "dmat4")
-(check-equal? (glsl-type-canonical-name 'sampler-2d) "sampler2D")
-(check-equal? (glsl-type-canonical-name 'sampler_2d_array) "sampler2DArray")
-(check-equal? (glsl-type-canonical-name 'isampler-2d) "isampler2D")
-(check-equal? (glsl-type-canonical-name 'image-2d) "image2D")
-(check-equal? (glsl-type-canonical-name 'atomic-uint) "atomic_uint")
+(check-equal? (type-canonical-name 'vec-3) "vec3")
+(check-equal? (type-canonical-name 'vec_3) "vec3")
+(check-equal? (type-canonical-name 'ivec-2) "ivec2")
+(check-equal? (type-canonical-name 'mat-3x2) "mat3x2")
+(check-equal? (type-canonical-name 'mat-2x2) "mat2x2")
+(check-equal? (type-canonical-name 'dmat-4) "dmat4")
+(check-equal? (type-canonical-name 'sampler-2d) "sampler2D")
+(check-equal? (type-canonical-name 'sampler_2d_array) "sampler2DArray")
+(check-equal? (type-canonical-name 'isampler-2d) "isampler2D")
+(check-equal? (type-canonical-name 'image-2d) "image2D")
+(check-equal? (type-canonical-name 'atomic-uint) "atomic_uint")
 ;; 数组 / 多重采样 / cube 数组采样器
-(check-equal? (glsl-type-canonical-name 'sampler-1d-array) "sampler1DArray")
-(check-equal? (glsl-type-canonical-name 'sampler-2d-ms-array) "sampler2DMSArray")
-(check-equal? (glsl-type-canonical-name 'isampler-1d-array) "isampler1DArray")
-(check-equal? (glsl-type-canonical-name 'usampler-2d-ms-array) "usampler2DMSArray")
-(check-equal? (glsl-type-canonical-name 'sampler-1d-array-shadow) "sampler1DArrayShadow")
-(check-equal? (glsl-type-canonical-name 'sampler-2d-rect) "sampler2DRect")
-(check-equal? (glsl-type-canonical-name 'sampler-2d-rect-shadow) "sampler2DRectShadow")
-(check-equal? (glsl-type-canonical-name 'isampler-2d-rect) "isampler2DRect")
+(check-equal? (type-canonical-name 'sampler-1d-array) "sampler1DArray")
+(check-equal? (type-canonical-name 'sampler-2d-ms-array) "sampler2DMSArray")
+(check-equal? (type-canonical-name 'isampler-1d-array) "isampler1DArray")
+(check-equal? (type-canonical-name 'usampler-2d-ms-array) "usampler2DMSArray")
+(check-equal? (type-canonical-name 'sampler-1d-array-shadow) "sampler1DArrayShadow")
+(check-equal? (type-canonical-name 'sampler-2d-rect) "sampler2DRect")
+(check-equal? (type-canonical-name 'sampler-2d-rect-shadow) "sampler2DRectShadow")
+(check-equal? (type-canonical-name 'isampler-2d-rect) "isampler2DRect")
 ;; image 的数组 / 多重采样 / cube 数组
-(check-equal? (glsl-type-canonical-name 'image-1d-array) "image1DArray")
-(check-equal? (glsl-type-canonical-name 'image-cube-array) "imageCubeArray")
-(check-equal? (glsl-type-canonical-name 'iimage-2d-ms-array) "iimage2DMSArray")
-(check-equal? (glsl-type-canonical-name 'uimage-2d-ms-array) "uimage2DMSArray")
-(check-equal? (glsl-type-canonical-symbol 'vec-3) 'vec3)
-(check-false (glsl-type-canonical-name 'My-Light))
-(check-true (glsl-builtin-type? 'sampler-2d))
-(check-true (glsl-type-alias? 'vec-3))
-(check-false (glsl-type-alias? 'vec3))
-(check-true (and (assq 'vec-3 glsl-type-alias-forms) #t))
+(check-equal? (type-canonical-name 'image-1d-array) "image1DArray")
+(check-equal? (type-canonical-name 'image-cube-array) "imageCubeArray")
+(check-equal? (type-canonical-name 'iimage-2d-ms-array) "iimage2DMSArray")
+(check-equal? (type-canonical-name 'uimage-2d-ms-array) "uimage2DMSArray")
+(check-equal? (type-canonical-symbol 'vec-3) 'vec3)
+(check-false (type-canonical-name 'My-Light))
+(check-true (builtin-type? 'sampler-2d))
+(check-true (type-alias? 'vec-3))
+(check-false (type-alias? 'vec3))
+(check-true (and (assq 'vec-3 type-alias-forms) #t))
 
 (check-glsl
  "uniform vec3 u_color;\nuniform mat4 u_model;\nuniform sampler2D u_tex;\nuniform isampler2DArray u_arr;\nvoid main() {\n  vec3 p = vec3(1.0, 2.0, 3.0);\n}"
@@ -280,12 +280,12 @@
     (vec-3 p (vec-3 1.0 2.0 3.0)))))
 
 (define alias-ifc
-  (glsl-program-interface
+  (shader-program-interface
    (glsl (uniform vec-3 u-color)
          (uniform mat-4 u-model)
          (uniform sampler-2d u-tex))))
-(check-equal? (map (lambda (v) (glsl-type-name (glsl-var-type v)))
-                   (glsl-interface-vars alias-ifc))
+(check-equal? (map (lambda (v) (shader-type-name (shader-var-type v)))
+                   (shader-interface-vars alias-ifc))
               '(vec3 mat4 sampler2D))
 
 (displayln "name 全部测试通过")

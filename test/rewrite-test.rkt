@@ -7,11 +7,11 @@
          ffi/vector
          "../glsl/rewrite.rkt")
 
-;; (glsl ...) 返回 glsl-program；这里比较它的美化 src 与「原始串的美化」。
-;; 原始串是重写层的真值，glsl-pretty 是确定性函数 → 等价于测重写层输出。
+;; (glsl ...) 返回 shader-program；这里比较它的美化 src 与「原始串的美化」。
+;; 原始串是重写层的真值，shader-pretty 是确定性函数 → 等价于测重写层输出。
 (define-syntax-rule (check-glsl raw (form ...))
-  (check-equal? (glsl-program-src (glsl form ...))
-                (glsl-pretty raw)))
+  (check-equal? (shader-program-src (glsl form ...))
+                (shader-pretty raw)))
 
 ;; ---------- 顶点着色器（02 课，表面语法） ----------
 (define vert
@@ -25,7 +25,7 @@
      (set! gl_Position (vec4 aPos 0.0 1.0)))))
 
 (check-equal?
- (glsl-program-src vert)
+ (shader-program-src vert)
  "#version 330 core\nlayout(location = 0) in vec2 aPos;\nlayout(location = 1) in vec2 aUV;\nout vec2 vUV;\nvoid main() {\n  vUV = aUV;\n  gl_Position = vec4(aPos, 0.0, 1.0);\n}")
 
 ;; ---------- 片元着色器（02 课，表面语法） ----------
@@ -49,7 +49,7 @@
      (set! FragColor (vec4 (clamp c 0.0 1.0) 1.0)))))
 
 (displayln "===== 02 片元（表面语法 → 美化）=====")
-(displayln (glsl-program-src frag))
+(displayln (shader-program-src frag))
 (newline)
 
 ;; ---------- 语法覆盖断言（逐个特性） ----------
@@ -180,7 +180,7 @@
 
 ;; ---------- 复杂循环：嵌套 / break / continue / do-while / 复合条件 ----------
 (define-syntax-rule (check-src (form ...) expected)
-  (check-equal? (glsl-program-src (glsl form ...)) expected))
+  (check-equal? (shader-program-src (glsl form ...)) expected))
 
 (check-src
  ((version 330 core) (define (main) void
@@ -333,11 +333,11 @@
         (uniform float uTime)
         (out vec4 c)
         (define (main) void (set! c (vec4 1.0)))))
-(check-equal? (glsl-form-text (glsl-program-lookup src-map 1)) '(version 330 core))
-(check-equal? (glsl-form-text (glsl-program-lookup src-map 2)) '(uniform float uTime))
-(check-equal? (glsl-form-text (glsl-program-lookup src-map 4))
+(check-equal? (shader-form-text (shader-program-lookup src-map 1)) '(version 330 core))
+(check-equal? (shader-form-text (shader-program-lookup src-map 2)) '(uniform float uTime))
+(check-equal? (shader-form-text (shader-program-lookup src-map 4))
               '(define (main) void (set! c (vec4 1.0))))
 
 ;; 空串 form（raw ""）不崩、不占行
-(check-equal? (glsl-program-src (glsl (version 330 core) (raw "") (out vec4 c)))
+(check-equal? (shader-program-src (glsl (version 330 core) (raw "") (out vec4 c)))
               "#version 330 core\nout vec4 c;")

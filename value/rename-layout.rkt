@@ -4,27 +4,27 @@
 ;; 值层 · value/rename-layout.rkt —— GLSL 风格命名（交错布局）
 ;;
 ;; 纯 alias + 宏外观：value/layout.rkt 的 Racket 名 → GLSL 名。零逻辑。
-;;   glsl-struct：把 shader 里的 struct 镜像到 CPU 侧。
+;;   shader-struct：把 shader 里的 struct 镜像到 CPU 侧。
 ;; ============================================================
 
 (require "layout.rkt"
          (for-syntax racket/base racket/syntax "type.rkt" "../types.rkt"))
 
-(provide glsl-struct)
+(provide shader-struct)
 
-(define-syntax (glsl-struct stx)
+(define-syntax (shader-struct stx)
   (syntax-case stx ()
     [(_ Name (type field) ...)
      (let* ([types     (syntax->list #'(type ...))]
             [fields    (syntax->list #'(field ...))]
             ;; 类型别名（vec-3 / mat_4 …）在编译期规范成 canonical，
             ;; 这样 <Name>-fields 与 shader 接口里的 canonical 类型名可直接比较。
-            [type-syms (map glsl-type-canonical-symbol (map syntax->datum types))])
+            [type-syms (map type-canonical-symbol (map syntax->datum types))])
        (when (null? fields)
-         (error 'glsl-struct "至少需要一个字段"))
+         (error 'shader-struct "至少需要一个字段"))
        (define kinds (map type-kind type-syms))
        (when (and (memq 'f32 kinds) (memq 'f64 kinds))
-         (error 'glsl-struct "字段不能混用 float/double 精度：~s" type-syms))
+         (error 'shader-struct "字段不能混用 float/double 精度：~s" type-syms))
        (define all-same? (andmap (lambda (k) (eq? k (car kinds))) kinds))
        (define pack-fmt
          (if all-same?

@@ -1,7 +1,7 @@
 #lang racket/base
 ;; ============================================================
-;; gl-error 的行级源映射测试
-;; 运行：racket test/gl-error-test.rkt
+;; shader-error 的行级源映射测试
+;; 运行：racket test/shader-error-test.rkt
 ;; ============================================================
 (require rackunit racket/string
          "../glsl/error.rkt"
@@ -9,7 +9,7 @@
 
 ;; 定位辅助：log → located-error
 (define (loc log prog)
-  (locate-gl-error prog (car (parse-gl-error-log log))))
+  (locate-shader-error prog (car (parse-shader-error-log log))))
 
 (define prog
   (glsl (version 330 core)
@@ -22,7 +22,7 @@
 ;; GLSL 第 5 行（main 函数体）→ 覆盖它的顶层 form
 (define le (loc "0:5(21): error: `uTime' undeclared\n" prog))
 (check-not-false (located-error-form le))
-(check-equal? (glsl-form-text (located-error-form le))
+(check-equal? (shader-form-text (located-error-form le))
               '(define (main) void (set! c (vec4 uTime))))
 
 ;; ---------- ② 美化 GLSL：标出报错行 ----------
@@ -34,7 +34,7 @@
 (define s (render-sexpr-pretty (list le)))
 (check-true (regexp-match? #rx"s-expr source:" s))
 (check-true (regexp-match?
-             (regexp (format "> +~a \\|" (glsl-form-src-line (located-error-form le))))
+             (regexp (format "> +~a \\|" (shader-form-src-line (located-error-form le))))
              s))
 
 ;; ---------- 行号越界 → form=#f，③ 空（不崩）----------
@@ -55,4 +55,4 @@
 
 ;; ---------- 第一个 form 的行也对 ----------
 (define le4 (loc "0:2(9): error: `uTime' undeclared\n" prog))
-(check-equal? (glsl-form-text (located-error-form le4)) '(uniform float uTime))
+(check-equal? (shader-form-text (located-error-form le4)) '(uniform float uTime))

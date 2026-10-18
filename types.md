@@ -33,13 +33,13 @@ canonical 名永远可用；别名只增加入口：
 ## API
 
 ```racket
-(glsl-type-canonical-name 'vec-3)     ; "vec3"
-(glsl-type-canonical-symbol 'vec-3)   ; 'vec3
-(glsl-type-alias? 'vec-3)             ; #t
-(glsl-type-alias? 'vec3)              ; #f
-(glsl-builtin-type? 'sampler-2d)      ; #t
-glsl-type-alias-forms                 ; ((alias . canonical) ...)
-builtin-glsl-type-names               ; canonical symbols
+(type-canonical-name 'vec-3)     ; "vec3"
+(type-canonical-symbol 'vec-3)   ; 'vec3
+(type-alias? 'vec-3)             ; #t
+(type-alias? 'vec3)              ; #f
+(builtin-type? 'sampler-2d)      ; #t
+type-alias-forms                 ; ((alias . canonical) ...)
+builtin-type-names               ; canonical symbols
 ```
 
 ## 依赖方向

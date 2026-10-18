@@ -5,7 +5,7 @@
 ;;
 ;; 「逻辑：把若干字段按类型清单铺成一条交错记录，并算 stride / offset」。
 ;; 供 glVertexAttribPointer 用；不是 GLSL 语言概念，所以实现层用 record-*。
-;; 命名：[Racket 传统]。GLSL 名（glsl-struct/glsl-stride-bytes/…）在 rename-layout.rkt。
+;; 命名：[Racket 传统]。GLSL 名（shader-struct/shader-stride-bytes/…）在 rename-layout.rkt。
 ;; ============================================================
 
 (require ffi/vector "type.rkt" "cvector.rkt")

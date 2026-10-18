@@ -7,10 +7,10 @@
 ;;   surface datum（(vec2 1.0 2.0)、(set! x v)、(in vec2 aPos)...）
 ;;     ↓ rw-expr / rw-stmt / rw-top（编译期纯函数，直接调用 glsl-* 原语）
 ;;   字符串片段（每行一个顶层 form 的 GLSL 文本）
-;;     ↓ make-glsl-program（编译期美化 + 行映射 + 接口反射）
-;;   glsl-program 值（编译期常量）
+;;     ↓ make-shader-program（编译期美化 + 行映射 + 接口反射）
+;;   shader-program 值（编译期常量）
 ;;     ↓ 生成代码
-;;   (datum->glsl-program '<program-datum>)   —— 运行期只重建，无逻辑
+;;   (datum->shader-program '<program-datum>)   —— 运行期只重建，无逻辑
 ;;
 ;; ★ 没有运行期求值：`glsl-unquote` 已移除（见 ../COMPOSITION.md §2）。
 ;;   动态 shader 请在 Racket 里拼整段 GLSL 字符串，交给 opengl 包的 shader-compile。
@@ -43,8 +43,8 @@
 (begin-for-syntax
 
   ;; ---------- 内建类型名集合 ----------
-  ;; 单一来源：glsl-interface.rkt 的类型模型（保证与类型反射一致）
-  (define builtin-types (list->seteq builtin-glsl-type-names))
+  ;; 单一来源：shader-interface.rkt 的类型模型（保证与类型反射一致）
+  (define builtin-types (list->seteq builtin-type-names))
 
   ;; 当前类型集合（含本块收集的 struct 名）
   (define type-names (make-parameter builtin-types))
@@ -119,9 +119,9 @@
   (define (block-type? t)
     (and (pair? t) (eq? (car t) 'block) (>= (length t) 2) (symbol? (cadr t))))
 
-  (define (glsl-type? t)
+  (define (shader-type? t)
     (or (and (symbol? t)
-             (or (glsl-builtin-type? t)          ; canonical 或类型别名
+             (or (builtin-type? t)          ; canonical 或类型别名
                  (set-member? (type-names) t)))  ; 用户 struct 名（表面名）
         (array-type? t)
         (block-type? t)))
@@ -136,7 +136,7 @@
     (cond
       [(symbol? t)
        ;; 内建类型/别名 → canonical 拼写；用户 struct 名 → 标识符规则（- → _）
-       (or (glsl-type-canonical-name t) (glsl-name t))]
+       (or (type-canonical-name t) (glsl-name t))]
       [(array-type? t)
        (define sz (if (null? (cddr t)) "[]" (format "[~a]" (rw-array-size (caddr t)))))
        (string-append (rw-type (cadr t)) sz)]
@@ -154,7 +154,7 @@
            (cond
              [(eq? h 'layout) #t]
              [(glsl-qualifier? h) #t]
-             [(glsl-type? h) (and (pair? a) (symbol? (car a)))]
+             [(shader-type? h) (and (pair? a) (symbol? (car a)))]
              [else #f]))))
 
   ;; ---------- 表达式 ----------
@@ -192,7 +192,7 @@
           (glsl-field (glsl-name (substring (symbol->string head) 1)) (rw-expr (car args)))]
          [(eq? head 'aref)
           (glsl-aref (rw-expr (car args)) (rw-expr (cadr args)))]
-         [(glsl-type? head)
+         [(shader-type? head)
           (apply glsl-ctor (rw-type head) (map rw-expr args))]
          [else
           (apply glsl-call (glsl-function-name head) (map rw-expr args))])]
@@ -303,7 +303,7 @@
     (let loop ([fs forms] [acc '()])
       (define d (car fs))
       (cond
-        [(glsl-type? d) (values (reverse acc) fs)]          ; 类型（含 array/block）→ 结束
+        [(shader-type? d) (values (reverse acc) fs)]          ; 类型（含 array/block）→ 结束
         [(glsl-qualifier? d) (values (reverse acc) fs)]      ; 限定符 → 结束
         [(pair? d) (loop (cdr fs) (cons d acc))]            ; (location 0) 等项
         [else (loop (cdr fs) (cons d acc))])))              ; 裸项 std140 等
@@ -330,7 +330,7 @@
     (let loop ([fs forms] [acc '()])
       (cond
         [(null? fs) (values (map glsl-qualifier-name (reverse acc)) '())]
-        [(glsl-type? (car fs))
+        [(shader-type? (car fs))
          (values (map glsl-qualifier-name (reverse acc)) fs)]
         [(symbol? (car fs))
          (loop (cdr fs) (cons (car fs) acc))]
@@ -397,7 +397,7 @@
     (glsl-field-decl (rw-type (car f)) (glsl-name (cadr f))))
 
   (define (rw-struct args)
-    (apply glsl-struct-decl (glsl-name (car args)) (map rw-field (cdr args))))
+    (apply shader-struct-decl (glsl-name (car args)) (map rw-field (cdr args))))
 
   ;; ---------- 预处理指令 ----------
   ;; 预处理指令是语法无关的（编译前按行处理），所以顶层 / 语句位置都允许。
@@ -468,9 +468,9 @@
               (glsl-macro-extension (glsl-name (car args)) (glsl-name (cadr args)))]
              [else #f]))))
 
-  ;; ---------- 接口反射：声明 → glsl-type / glsl-var ----------
+  ;; ---------- 接口反射：声明 → shader-type / shader-var ----------
   ;; 只"读"声明，不做组合（不合并多个 shader、不生成 setter）。
-  ;; ★ 暂定：类型模型与反射形状见 glsl-interface.rkt，尚未定稿，可能调整。
+  ;; ★ 暂定：类型模型与反射形状见 shader-interface.rkt，尚未定稿，可能调整。
 
   ;; struct 定义：名字 → 字段 form 表
   (define (struct-def-of d)
@@ -484,35 +484,35 @@
 
   ;; layout 项 → 接口里的统一表示：每项都是 (名) 或 (名 值)
   ;; 接口按 **GLSL 名** 存 layout 键（local-size-x → local_size_x）；
-  ;; glsl-var-layout-ref 同时接受表面名与 GLSL 名。
+  ;; shader-var-layout-ref 同时接受表面名与 GLSL 名。
   (define (layout-item->iface it)
     (cond
       [(pair? it) (cons (glsl-layout-key-symbol (car it)) (cdr it))]
       [else (list (glsl-layout-key-symbol it))]))
 
-  ;; 表面类型 → glsl-type（struct 名查 struct-defs，其余查内建表）
-  (define (surface->glsl-type t struct-defs memo)
+  ;; 表面类型 → shader-type（struct 名查 struct-defs，其余查内建表）
+  (define (surface->shader-type t struct-defs memo)
     (cond
       [(symbol? t)
        (or (hash-ref memo t #f)
            (cond
              [(hash-ref struct-defs t #f)
               => (lambda (fields)
-                   (define ty (glsl-struct-type t (for/list ([f (in-list fields)])
-                                                    (field->glsl-var f struct-defs memo))))
+                   (define ty (shader-struct-type t (for/list ([f (in-list fields)])
+                                                    (field->shader-var f struct-defs memo))))
                    (hash-set! memo t ty) ty)]
-             [else (or (builtin-glsl-type t)
+             [else (or (builtin-type-of t)
                        (error 'glsl "接口反射：未知类型 ~s" t))]))]
       [(array-type? t)
-       (glsl-array-type (surface->glsl-type (cadr t) struct-defs memo)
+       (shader-array-type (surface->shader-type (cadr t) struct-defs memo)
                         (if (null? (cddr t)) #f (caddr t)))]
       [(block-type? t)
-       (glsl-block-type (cadr t) (for/list ([f (in-list (cddr t))])
-                                   (field->glsl-var f struct-defs memo)))]
+       (shader-block-type (cadr t) (for/list ([f (in-list (cddr t))])
+                                   (field->shader-var f struct-defs memo)))]
       [else (error 'glsl "接口反射：坏类型 ~s" t)]))
 
-  ;; struct/block 成员 form → glsl-var
-  (define (field->glsl-var f struct-defs memo)
+  ;; struct/block 成员 form → shader-var
+  (define (field->shader-var f struct-defs memo)
     (define-values (quals after layout)
       (if (and (pair? f) (eq? (car f) 'layout))
           (let*-values ([(items rest) (collect-layout-items (cdr f))]
@@ -520,10 +520,10 @@
             (values (map string->symbol qs) rest* (map layout-item->iface items)))
           (let-values ([(qs rest) (collect-quals f)])
             (values (map string->symbol qs) rest '()))))
-    (glsl-var (cadr after) (surface->glsl-type (car after) struct-defs memo) quals layout))
+    (shader-var (cadr after) (surface->shader-type (car after) struct-defs memo) quals layout '() #f))
 
-  ;; 顶层声明 form → glsl-var（不是声明、或没有变量名 → #f）
-  (define (decl->glsl-var d struct-defs memo)
+  ;; 顶层声明 form → shader-var（不是声明、或没有变量名 → #f）
+  (define (decl->shader-var d struct-defs memo)
     (define-values (quals after layout)
       (cond
         [(and (pair? d) (eq? (car d) 'layout))
@@ -535,7 +535,7 @@
            (values (map string->symbol qs) rest '()))]
         [else (values '() '() '())]))
     (and (pair? after) (pair? (cdr after)) (symbol? (cadr after))
-         (glsl-var (cadr after) (surface->glsl-type (car after) struct-defs memo) quals layout)))
+         (shader-var (cadr after) (surface->shader-type (car after) struct-defs memo) quals layout '() #f)))
 
   ;; 全部顶层声明 → 接口 datum
   (define (interface-datum datas)
@@ -543,9 +543,9 @@
     (define memo (make-hash))
     (define vars
       (for/fold ([acc '()]) ([d (in-list datas)])
-        (define v (decl->glsl-var d struct-defs memo))
+        (define v (decl->shader-var d struct-defs memo))
         (if v (cons v acc) acc)))
-    (glsl-interface->datum (glsl-interface (reverse vars))))
+    (shader-interface->datum (shader-interface (reverse vars))))
 
   ;; 片段组合冲突检测：同一个 GLSL 标识符（结构名 / 函数名 / 顶层变量）
   ;; 只能定义一次。比较的是 **glsl-name 归一后**的名字：
@@ -569,8 +569,8 @@
         [(and (pair? d) (eq? (car d) 'define) (pair? (cadr d)) (symbol? (car (cadr d))))
          (record! (car (cadr d)) 'function)]
         [else
-         (define v (decl->glsl-var d struct-defs memo))
-         (when v (record! (glsl-var-name v) 'variable))])))
+         (define v (decl->shader-var d struct-defs memo))
+         (when v (record! (shader-var-name v) 'variable))])))
 
   ;; ---------- 顶层 ----------
   (define (rw-top t)
@@ -591,21 +591,21 @@
       [else (error 'glsl "bad top-level form: ~s" t)]))
 
   ;; 对一组 entries 跑完整编译期流程（词表 → 反射 → 重写 → 美化/组装）。
-  ;; 返回 (values <glsl-program> <iface-datum>)：后者是编译期表，供宏消费。
+  ;; 返回 (values <shader-program> <iface-datum>)：后者是编译期表，供宏消费。
   (define (entries->program+iface entries)
     ;; 收集本块 struct 名，扩充类型集合
     (type-names builtin-types)
     (for ([e (in-list entries)])
       (define d (entry-datum e))
       (when (and (pair? d) (eq? 'struct (car d)))
-        (when (glsl-builtin-type? (cadr d))
+        (when (builtin-type? (cadr d))
           (error 'glsl "struct 名不能与内建类型/别名冲突：~a" (cadr d)))
         (type-names (set-add (type-names) (cadr d)))))
     (define datas (map entry-datum entries))
     (check-duplicates datas)
     (define iface-datum (interface-datum datas))
     (define parts (map rw-top datas))
-    (values (make-glsl-program parts (map entry-source entries) iface-datum)
+    (values (make-shader-program parts (map entry-source entries) iface-datum)
             iface-datum))
 
   (define (entries->program entries)
@@ -628,22 +628,22 @@
 
 ;; glsl-splice 只作为 (glsl ...) / glsl-fragment 顶层的 form 被识别；单独出现时清晰报错。
 (define-syntax (glsl-splice stx)
-  (raise-syntax-error 'glsl-splice "glsl-glsl-splice 只能写在 (glsl ...) 或 glsl-fragment 的顶层" stx))
+  (raise-syntax-error 'glsl-splice "glsl-splice 只能写在 (glsl ...) 或 glsl-fragment 的顶层" stx))
 
-;; (glsl form ...) —— 展开期跑完 S1–S8，产出 glsl-program 常量。
+;; (glsl form ...) —— 展开期跑完 S1–S8，产出 shader-program 常量。
 (define-syntax (glsl stx)
   (syntax-case stx ()
     [(_ form ...)
      (let ()
        (define entries (forms->entries (syntax->list #'(form ...))))
        (define program (entries->program entries))
-       ;; 产出运行期表达式：(datum->glsl-program '<program-datum>)
+       ;; 产出运行期表达式：(datum->shader-program '<program-datum>)
        (datum->syntax #'glsl
-                      (list 'datum->glsl-program
-                            (list 'quote (glsl-program->datum program)))))]))
+                      (list 'datum->shader-program
+                            (list 'quote (shader-program->datum program)))))]))
 
 ;; (glsl-shader name form ...) —— 定义具名 shader，并**额外把编译期接口表绑为 <name>-interface**。
-;;   name          运行期：glsl-program（datum->glsl-program 重建）
+;;   name          运行期：shader-program（datum->shader-program 重建）
 ;;   <name>-interface  编译期：宏，展开为 (quote <iface-datum>)，供其他宏读取（表驱动代码生成）
 (define-syntax (glsl-shader stx)
   (syntax-case stx ()
@@ -652,10 +652,10 @@
      (let ()
        (define entries (forms->entries (syntax->list #'(form ...))))
        (define-values (program iface-datum) (entries->program+iface entries))
-       (with-syntax ([prog-datum (datum->syntax stx (glsl-program->datum program))]
+       (with-syntax ([prog-datum (datum->syntax stx (shader-program->datum program))]
                      [iface-datum-stx (datum->syntax stx iface-datum)]
                      [iface-id (format-id #'name "~a-interface" #'name)])
          #'(begin
-             (define name (datum->glsl-program 'prog-datum))
+             (define name (datum->shader-program 'prog-datum))
              (define-syntax iface-id
                (lambda (use-stx) (syntax (quote iface-datum-stx)))))))]))
