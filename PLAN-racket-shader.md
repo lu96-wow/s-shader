@@ -173,12 +173,36 @@ racket-shader/
       11 个测试全绿（分支 `racket-shader`）。
       ★ 顺带验证：**跨包的子集合可以合并**——A 包提供 `shader/glsl`、B 包提供 `shader/glsl-opengl`
       时两者都能解析（`PLTCOLLECTS` 双根实测），所以 OpenGL 层不必改成扁平名。
-- [ ] **step 3** 提升 core：`ident.rkt` / `type.rkt` / `var.rkt` / `interface.rkt` / `program.rkt` /
-      `pretty.rkt` / `emit-util.rkt` / `error.rkt`（拆 locate/render 与方言日志解析），
-      同时做 `glsl-*` → `shader-*` 重命名、槽位扩展、`if`/`if-ternary` 改造。
-      连带：`racket-glsl-opengl` 的 `core/meta/*` 依赖接口 datum 形状，需同步。
-- [ ] **step 4** `shader/slang`：`types.rkt`（参数化类型）/ `names.rkt`（语义 + 限定符表）/
-      `rewrite.rkt` / `attrs.rkt`（`[[vk::…]]`、`[numthreads]`、`[shader]`）/ 日志解析。
+- [x] **step 3a** core 数据模型重命名 + 槽位预留
+      （`shader-program/form/src/interface/type/var/pretty`、`shader-type-<kind>?`、
+      `type-canonical-*`、`shader-error`/`locate-error`/`parse-error-log`；值层 `glsl-*` → `shader-*`、
+      `glsl-struct` → `shader-struct`）。槽位一次到位：`shader-type` 加 `args`，
+      `shader-var` 加 `annotations` / `owner`。
+- [x] **step 3b** core / 方言拆分
+      ```
+      shader/ident.rkt    别名引擎（表由方言传入）
+      shader/type.rkt     类型 + 声明模型（type 与 var 合并：datum 互为递归，拆开会 require 环）
+      shader/interface.rkt 接口反射 + datum 往返（并转出 types.rkt 的类型名词汇）
+      shader/program.rkt  产物 + 行级源映射
+      shader/pretty.rkt   美化（只依赖 emit-util）
+      shader/emit-util.rkt 拼装小工具
+      shader/error.rkt    定位 + 三视角渲染（render-log / render-source / render-sexpr）
+      glsl/types.rkt      类型目录（拼写 → shader-type）
+      glsl/log.rkt        日志解析（Mesa 位置格式）
+      ```
+      ★ Q4 落地方式：`source-name` 不再由 core 调 `glsl-name-symbol` 现算，而是**方言构造
+      `shader-var` 时算好存字段**；core 里没有任何方言转换函数。
+      ★ 报错层渲染名去掉 `gl-`：`render-gl-linecol/pretty/sexpr` → `render-log/source/sexpr`。
+- [x] **step 3c** 语法改造
+      `(if c t [e])` = 语句 if/else（`begin` 表多语句）；`(if-ternary c t e)` = 三元；
+      `(mul a b)` = 跨方言矩阵乘（GLSL 发 `*`，Slang 发 `mul()`）；
+      预处理条件指令改名 `pp-if` / `pp-elif` / `pp-else` / `pp-endif`（否则与语句 `if` 撞名）；
+      组合宏改名 `fragment` / `splice` / `shader`（`glsl` 宏保留方言名）。
+      新增 7 条控制流断言锁住新语义。
+- [ ] **step 3d** `shader/slang` 空壳：只放 `types.rkt` 的类型目录骨架 + `names.rkt` 表骨架，
+      验证 core 边界无漏（这一步应该只在 slang 目录里写代码，core 一行不改）。
+- [ ] **step 4** `shader/slang` 实现：`core.rkt`（原语）/ `rewrite.rkt` / `attrs.rkt`
+      （`[[vk::…]]`、`[numthreads]`、`[shader]`）/ 语义注解（`(float4 pos SV-Position)`）/ 日志解析。
 - [ ] **包改名**：目录 `racket-glsl` → `racket-shader`，`raco pkg remove racket-glsl` +
-      `raco pkg install --link racket-shader`（会连带 `racket-glsl-opengl` 与其依赖声明,
+      `raco pkg install --link racket-shader`（会连带 `racket-glsl-opengl` 与其依赖声明，
       以及 study-opengl 里 20 个 `#lang glsl-opengl` 头）。
