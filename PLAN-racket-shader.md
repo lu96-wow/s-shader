@@ -13,7 +13,10 @@
 | 4 | 不为向后兼容牺牲能力：以目标语言本身的表达能力为准设计表面语法 |
 | 5 | 现阶段**只拼字符串**，不接编译器、不做编译期校验 |
 | 6 | 模块组合只用 Racket 层（`glsl-fragment` / `glsl-splice`）→ 改名 `fragment` / `splice`；`import` / `#include` 用 `raw` 裸字符串，Racket 不特殊处理 |
-| 7 | `(if c t e)` 改成语句 if/else；三元另起新名（待定名，见 §6-Q5） |
+| 7 | `(if c t e)` 改成语句 if/else；三元改名 `(if-ternary c t e)`；`when` / `unless` / `cond` 保留 |
+| 8 | Q1=(a) slang 方言 `*` 逐分量，跨方言矩阵乘用 `(mul a b)` |
+| 9 | Q2=(a) `uniform` 换成显式 `(cbuffer …)` / `(param-block …)` / `(push-const …)` |
+| 10 | Q4=是：`shader-type` / `shader-var` 的槽位一次到位（`args` / `annotations` / `owner`） |
 
 ## 1. 语言名：实测结论
 
@@ -145,19 +148,37 @@ racket-shader/
 - `racket-glsl-opengl` 的 `core/meta/*`（`glsl-vertex-layout!`、`glsl-uniform-setter!`）依赖
   `glsl-interface` 的 datum 形状 → 随 §2.3 的槽位扩展同步改。
 
-## 6. 待定问题
+## 6. 已定问题（原待定）
 
-- **Q1（最重要）`*` 的矩阵语义**：slang 方言里 `( * mat vec )` 怎么办？
-  (a) `*` 一律逐分量，新增 `(mul a b)`，移植现有 shader 时要改；
-  (b) `*` 一律发 `mul()`——但标量/向量逐分量乘也要用 `*`，会错；
-  (c) 给 `*` 加类型推断（DSL 目前完全没有类型信息）——不现实。
-  默认倾向 (a)。
-- **Q2 `uniform` 的表面形态**：
-  (a) `(cbuffer Camera (set 0) (binding 0) (mat4 view) (mat4 proj))` 显式块；
-  (b) 保留 `(uniform mat4 uMVP)`，发射层自动把同一 set/binding 的字段打包进 cbuffer。
-  默认倾向 (a)：与 Slang 源码 1:1，接口表不撒谎。
-- **Q3 `#lang` 最终形态**：`#lang shader`（两个宏都给）+ `#lang shader/glsl` + `#lang shader/slang`，
-  还是只要前两者之一？默认：三个都给。
-- **Q4 core 数据结构现在就把 `args` / `annotations` / `owner` 三个槽加上？**
-  默认：是（datum 形状一次到位）。
-- **Q5 三元的新名**：`(if-ternary c t e)` / `(ternary c t e)` / `(?: c t e)`？默认 `(if-ternary …)`。
+- **Q1 `*` 的矩阵语义 → (a)**：slang 方言 `*` 保持逐分量；跨方言矩阵乘用新的 `(mul a b)`。
+  GLSL 方言同时提供 `(mul a b)`（发射 `(a * b)`），于是**同一份 shader 源码在两个方言里都能用 `mul` 表达矩阵乘**。
+  `*` 保留各语言原生语义（slang 逐分量 / GLSL 矩阵乘），不做类型推断。
+- **Q2 `uniform` 表面形态 → (a)**：显式块，与 Slang 源码 1:1：
+
+  ```racket
+  (cbuffer Camera (set 0) (binding 0) (mat4 view) (mat4 proj))
+  (param-block Materials (set 1) (binding 0) (sbuffer Material 32 materials))
+  (push-const Push (mat4 mvp) (float time))
+  ```
+
+  `owner` 槽记录成员属于哪个块，接口表不撒谎（不做"自动打包"的魔法）。
+- **Q5 三元名 → `(if-ternary c t e)`**：`(if c t e)` 变成语句 if/else；
+  `when` / `unless` / `cond` 保留（它们生成真正的 `if / else if` 链），`(if-ternary …)` 只在表达式位置。
+
+## 7. 进度
+
+- [x] **step 1** 评估（本文 §2）
+- [x] **step 2** 结构：`core/` 拆成 `types.rkt` + `value/` + `glsl/`；根 `main.rkt` 改为 `#lang shader`
+      （core，只给值层）；语言入口 `#lang shader` / `#lang shader/glsl` 均已实测可用；
+      11 个测试全绿（分支 `racket-shader`）。
+      ★ 顺带验证：**跨包的子集合可以合并**——A 包提供 `shader/glsl`、B 包提供 `shader/glsl-opengl`
+      时两者都能解析（`PLTCOLLECTS` 双根实测），所以 OpenGL 层不必改成扁平名。
+- [ ] **step 3** 提升 core：`ident.rkt` / `type.rkt` / `var.rkt` / `interface.rkt` / `program.rkt` /
+      `pretty.rkt` / `emit-util.rkt` / `error.rkt`（拆 locate/render 与方言日志解析），
+      同时做 `glsl-*` → `shader-*` 重命名、槽位扩展、`if`/`if-ternary` 改造。
+      连带：`racket-glsl-opengl` 的 `core/meta/*` 依赖接口 datum 形状，需同步。
+- [ ] **step 4** `shader/slang`：`types.rkt`（参数化类型）/ `names.rkt`（语义 + 限定符表）/
+      `rewrite.rkt` / `attrs.rkt`（`[[vk::…]]`、`[numthreads]`、`[shader]`）/ 日志解析。
+- [ ] **包改名**：目录 `racket-glsl` → `racket-shader`，`raco pkg remove racket-glsl` +
+      `raco pkg install --link racket-shader`（会连带 `racket-glsl-opengl` 与其依赖声明,
+      以及 study-opengl 里 20 个 `#lang glsl-opengl` 头）。
