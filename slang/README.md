@@ -75,6 +75,7 @@ struct VS_OUT {
 | `(uint3 id SV-DispatchThreadID)` | `uint3 id : SV_DispatchThreadID` | 参数上的语义后缀 |
 | `(inout float3 acc)` | `inout float3 acc` | 参数限定符 |
 | `(array float 64) data` | `float data[64]` | 数组维度写在**名字后面**（与 GLSL 不同） |
+| `(atomic-add c 1)` | `InterlockedAdd(c, 1)` | 内建函数别名表；`(barrier)` → `GroupMemoryBarrierWithGroupSync()`、`(wave-sum x)` → `WaveActiveSum(x)` |
 
 语句与 GLSL 方言一致：`begin` / `when` / `unless` / `if`（语句）/ `if-ternary`（三元）/
 `cond` / `for` / `while` / `do-while` / `switch` / `break` / `continue` / `return` / `discard` / `raw`。
@@ -102,10 +103,11 @@ struct VS_OUT {
 - [x] 表达式 / 语句 / 函数体（`*` 逐分量、`mul()`、`if` / `if-ternary`）
 - [x] 入口属性（`[shader(…)]` / `[numthreads(…)]`）、系统值参数（`SV_DispatchThreadID` …）
 - [x] 数组维度按 HLSL 规则写在名字后面
+- [x] `parse-error-log`（`file:line:col:` / `file(line):`）
+- [x] 原子 / 屏障 / 波内建函数别名表（`atomic-add`→`InterlockedAdd`、`barrier`→`GroupMemoryBarrierWithGroupSync`、`wave-sum`→`WaveActiveSum` …）
 - [ ] `push-constant` / `param-block` / 读写缓冲（`RWStructuredBuffer` / `RWTexture2D`）
-- [ ] `parse-error-log`（`file:line:col: error` 格式）
-- [ ] 原子/屏障/波内建函数（`InterlockedAdd`、`GroupMemoryBarrierWithGroupSync`、`WaveActiveSum` …）的表
 - [ ] 组合宏 `fragment` / `splice`（需决定是否上提到 core，见下）
+- [ ] 接 `slangc` 做编译验证（当前只拼字符串）
 
 ## 已知假设（未验证，step 4 接 slangc 时确认）
 

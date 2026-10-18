@@ -238,7 +238,7 @@
           (define-values (ty-str _ty _suffix) (rw-type head))
           (apply emit-ctor ty-str (map rw-expr args))]
          [else
-          (apply emit-call (slang-name head) (map rw-expr args))])]
+          (apply emit-call (slang-function-name head) (map rw-expr args))])]
       [else (error 'slang "bad expression: ~s" e)]))
 
   (define (rw-lvalue e)

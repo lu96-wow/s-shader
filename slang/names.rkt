@@ -21,6 +21,7 @@
          shader/ident)
 
 (provide slang-name slang-name-symbol slang-identifier?
+         slang-function-name slang-function-name-symbol
          slang-semantic-name slang-semantic-name-symbol slang-semantic?
          slang-semantic-names
          slang-modifier-name slang-modifier-name-symbol slang-modifier?
@@ -34,6 +35,7 @@
 (define (slang-name x) (user-identifier-name 'slang-name x))
 (define (slang-name-symbol x) (string->symbol (slang-name x)))
 
+
 ;; ---------- 查表：大小写 + '-'/'_' 不敏感 ----------
 
 (define (normalize-key x)
@@ -41,6 +43,43 @@
 
 (define (names->table names)
   (for/hash ([n (in-list names)]) (values (normalize-key n) (symbol->string n))))
+
+;; Slang / HLSL 内建函数里有不少多词大写名（InterlockedAdd / WaveActiveSum），
+;; 这里给「GLSL 式名字 → Slang 名」的别名；不在表里的按用户标识符处理（'-'→'_'）。
+(define function-aliases
+  '((atomic-add         . "InterlockedAdd")
+    (atomic-and         . "InterlockedAnd")
+    (atomic-or          . "InterlockedOr")
+    (atomic-xor         . "InterlockedXor")
+    (atomic-min         . "InterlockedMin")
+    (atomic-max         . "InterlockedMax")
+    (atomic-exchange    . "InterlockedExchange")
+    (atomic-comp-swap   . "InterlockedCompareExchange")
+    (barrier            . "GroupMemoryBarrierWithGroupSync")
+    (group-memory-barrier . "GroupMemoryBarrierWithGroupSync")
+    (memory-barrier     . "AllMemoryBarrierWithGroupSync")
+    (device-memory-barrier . "DeviceMemoryBarrierWithGroupSync")
+    (wave-sum           . "WaveActiveSum")
+    (wave-product       . "WaveActiveProduct")
+    (wave-min           . "WaveActiveMin")
+    (wave-max           . "WaveActiveMax")
+    (wave-count-bits    . "WaveActiveCountBits")
+    (wave-prefix-sum    . "WavePrefixSum")
+    (wave-any           . "WaveActiveAnyTrue")
+    (wave-all           . "WaveActiveAllTrue")
+    (wave-broadcast     . "WaveReadLaneAt")
+    (wave-lane-index    . "WaveGetLaneIndex")
+    (wave-lane-count    . "WaveGetLaneCount")))
+
+(define function-table
+  (for/hash ([p (in-list function-aliases)]) (values (normalize-key (car p)) (cdr p))))
+
+(define (slang-function-name x)
+  (or (hash-ref function-table (normalize-key x) #f)
+      (slang-name x)))
+
+(define (slang-function-name-symbol x) (string->symbol (slang-function-name x)))
+
 
 ;; ============================================================
 ;; 表 1 · 语义（后缀注解：`float4 pos : SV_Position`）

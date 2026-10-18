@@ -16,7 +16,10 @@
          slang/names
          shader/type
          shader/interface
-         shader/program)
+         shader/program
+         shader/error
+         slang/log
+         slang/names)
 
 (define shader
   (slang
@@ -186,5 +189,34 @@
 (check-true (string-contains? decl-src "groupshared float data[64];"))
 (check-true (string-contains? decl-src "const float PI = 3.14159;"))
 (check-true (string-contains? decl-src "static int counter = 0;"))
+
+
+;; 内建函数别名（GLSL 式写法 → Slang/HLSL 名）
+(check-equal? (slang-function-name 'atomic-add) "InterlockedAdd")
+(check-equal? (slang-function-name 'wave-sum) "WaveActiveSum")
+(check-equal? (slang-function-name 'barrier) "GroupMemoryBarrierWithGroupSync")
+(check-equal? (slang-function-name 'my-func) "my_func")
+
+(define fn-src
+  (shader-program-src
+   (slang
+     (define (f) void
+       (atomic-add counter 1)
+       (barrier)
+       (wave-sum 1.0)))))
+
+(check-true (string-contains? fn-src "InterlockedAdd(counter, 1);"))
+(check-true (string-contains? fn-src "GroupMemoryBarrierWithGroupSync();"))
+(check-true (string-contains? fn-src "WaveActiveSum(1.0);"))
+
+;; 日志解析：slangc / DXC 两种位置格式
+(check-equal? (map shader-error-line
+                   (parse-error-log "foo.slang:12:5: error 30015: undefined identifier 'x'\n"))
+              '(12))
+(check-equal? (map shader-error-line
+                   (parse-error-log "foo.slang(42): error X3000: syntax error\n"))
+              '(42))
+(check-equal? (map shader-error-line (parse-error-log "some note without position\n"))
+              '(#f))
 
 (displayln "slang 全部测试通过")
