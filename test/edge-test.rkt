@@ -69,10 +69,10 @@
 
 ;; ---------- ③ 行映射：预处理 / 同一源码行多 form / 多行函数 ----------
 
-(define p-pp (glsl (ifdef FOO) (uniform float a) (else) (uniform float b) (endif)))
+(define p-pp (glsl (ifdef FOO) (uniform float a) (pp-else) (uniform float b) (pp-endif)))
 (check-equal? (src-lines p-pp) 5)
 (check-equal? (map form->text (line->form p-pp))
-              '((ifdef FOO) (uniform float a) (else) (uniform float b) (endif)))
+              '((ifdef FOO) (uniform float a) (pp-else) (uniform float b) (pp-endif)))
 
 ;; 三个 form 写在同一行源码上 → 生成的 GLSL 仍是各自独立一行
 (define p-oneline (glsl (version 330 core) (uniform float a) (out vec4 b)))

@@ -8,6 +8,9 @@
          "../glsl/core.rkt"
          "../shader/pretty.rkt")
 
+;; 变参拼装：core 的 join-spaces 接受列表
+(define (join . parts) (join-spaces parts))
+
 ;; ---------- 原语断言 ----------
 (check-equal? (glsl-version 330 "core") "#version 330 core\n")
 (check-equal? (glsl-version 300 "es")   "#version 300 es\n")
@@ -126,7 +129,7 @@
 (define frag-color (glsl-ctor "vec4" (glsl-call "clamp" "c" "0.0" "1.0") "1.0"))
 
 (define frag
-  (glsl-shader
+  (join
    (glsl-version 330 "core")
    (glsl-in "vec2" "vUV")
    (glsl-uniform "float" "uTime")

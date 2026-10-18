@@ -1,9 +1,9 @@
 #lang racket/base
 
 ;; ============================================================
-;; composition-test.rkt —— surface chunk 组合（glsl-fragment / glsl-splice）
+;; composition-test.rkt —— surface chunk 组合（fragment / splice）
 ;; 运行：racket test/composition-test.rkt
-;; 覆盖：片段复用、递归 glsl-splice、词表共享、interface 合并、定义处源映射、冲突报错
+;; 覆盖：片段复用、递归 splice、词表共享、interface 合并、定义处源映射、冲突报错
 ;; ============================================================
 
 (require rackunit
@@ -15,22 +15,22 @@
          "../shader/pretty.rkt")
 
 ;; ---------- 片段定义（定义处）----------
-(glsl-fragment base
+(fragment base
   (struct Light (vec3 position) (vec3 color))
   (uniform Light uLight))
 
-(glsl-fragment lighting
-  (glsl-splice base)                                   ; 嵌套 glsl-splice
+(fragment lighting
+  (splice base)                                   ; 嵌套 splice
   (define (lambert (vec3 n) (vec3 l)) float
     (max (dot n l) 0.0)))
 
-(glsl-fragment fog
+(fragment fog
   (uniform float uFogDensity))
 
 (define shader
   (glsl (version 330 core)
-        (glsl-splice lighting)
-        (glsl-splice fog)
+        (splice lighting)
+        (splice fog)
         (uniform vec3 uEye)
         (in vec3 aPos)
         (define (main) void
@@ -63,24 +63,24 @@
 (check-equal? (shader-form-text (shader-program-lookup shader 1)) '(version 330 core))
 
 ;; ---------- 冲突检测（决策 3）：编译期报错 ----------
-(glsl-fragment dup-a (uniform float uX))
-(glsl-fragment dup-b (uniform float uX))
+(fragment dup-a (uniform float uX))
+(fragment dup-b (uniform float uX))
 (check-exn exn:fail?
-  (lambda () (expand #'(glsl (version 330 core) (glsl-splice dup-a) (glsl-splice dup-b)))))
+  (lambda () (expand #'(glsl (version 330 core) (splice dup-a) (splice dup-b)))))
 
 ;; 同名 struct 也算冲突
-(glsl-fragment s1 (struct Foo (float x)))
-(glsl-fragment s2 (struct Foo (float y)))
+(fragment s1 (struct Foo (float x)))
+(fragment s2 (struct Foo (float y)))
 (check-exn exn:fail?
-  (lambda () (expand #'(glsl (glsl-splice s1) (glsl-splice s2)))))
+  (lambda () (expand #'(glsl (splice s1) (splice s2)))))
 
-;; ---------- glsl-splice 的错误用法 ----------
-;; glsl-splice 出现在 (glsl ...) / glsl-fragment 之外
-(check-exn exn:fail? (lambda () (expand #'(glsl-splice base))))
-;; glsl-splice 的目标不是片段宏
+;; ---------- splice 的错误用法 ----------
+;; splice 出现在 (glsl ...) / fragment 之外
+(check-exn exn:fail? (lambda () (expand #'(splice base))))
+;; splice 的目标不是片段宏
 (define not-a-fragment 1)
-(check-exn exn:fail? (lambda () (expand #'(glsl (glsl-splice not-a-fragment)))))
+(check-exn exn:fail? (lambda () (expand #'(glsl (splice not-a-fragment)))))
 ;; 形状错误
-(check-exn exn:fail? (lambda () (expand #'(glsl (glsl-splice base extra)))))
+(check-exn exn:fail? (lambda () (expand #'(glsl (splice base extra)))))
 
 (displayln "composition 全部测试通过")

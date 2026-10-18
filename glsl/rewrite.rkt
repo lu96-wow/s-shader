@@ -40,7 +40,7 @@
 
 ;; 只导出方言自己的东西：core 的 type/interface/program/pretty/error 由
 ;; shader 集合（core 语言）提供，避免在 #lang shader/glsl 里重复导出。
-(provide glsl glsl-fragment glsl-splice glsl-shader
+(provide glsl fragment splice shader
          builtin-type-of
          (all-from-out "core.rkt")
          (all-from-out "names.rkt")
@@ -72,24 +72,24 @@
   (define (source-info f)
     (list (src-path-string f) (syntax-line f) (syntax->datum f)))
 
-  ;; (glsl-splice <片段名>) → 该片段的 entries（片段宏展开为 (quote chunk)）
-  (define (glsl-splice->entries stx)
+  ;; (splice <片段名>) → 该片段的 entries（片段宏展开为 (quote chunk)）
+  (define (splice->entries stx)
     (define parts (syntax->list stx))
     (unless (and parts (= 2 (length parts)))
-      (error 'glsl "bad glsl-splice：~s（应为 (glsl-splice 片段名)）" (syntax->datum stx)))
+      (error 'glsl "bad splice：~s（应为 (splice 片段名)）" (syntax->datum stx)))
     (define frag-stx (cadr parts))
     (define d (syntax->datum (local-expand frag-stx 'expression '())))
     (unless (and (pair? d) (memq (car d) '(quote #%quote)) (= 2 (length d)))
-      (error 'glsl "glsl-splice 的目标必须是片段宏（展开为 quote 数据）：~s" (syntax->datum frag-stx)))
+      (error 'glsl "splice 的目标必须是片段宏（展开为 quote 数据）：~s" (syntax->datum frag-stx)))
     (cadr d))
 
-  ;; forms（syntax 列表）→ entries；识别顶层 (glsl-splice …) 并拼入片段
+  ;; forms（syntax 列表）→ entries；识别顶层 (splice …) 并拼入片段
   (define (forms->entries forms)
     (append*
      (for/list ([f (in-list forms)])
        (define d (syntax->datum f))
-       (if (and (pair? d) (eq? (car d) 'glsl-splice))
-           (glsl-splice->entries f)
+       (if (and (pair? d) (eq? (car d) 'splice))
+           (splice->entries f)
            (list (make-entry d (source-info f)))))))
 
   ;; ---------- 运算符表 ----------
@@ -177,7 +177,18 @@
        (define args (cdr e))
        (cond
          [(eq? head 'if)
+          (error 'glsl
+                 "if 在表达式位置不可用（~s）；三元请写 (if-ternary c t e)" e)]
+         [(eq? head 'if-ternary)
+          (unless (= 3 (length args))
+            (error 'glsl "if-ternary 需要 3 个参数：~s" e))
           (glsl-ternary (rw-expr (car args)) (rw-expr (cadr args)) (rw-expr (caddr args)))]
+         ;; (mul a b)：跨方言的矩阵乘。GLSL 的 * 本身就是矩阵乘，所以直接发射 *；
+         ;; Slang 方言会发 mul(a, b)（那边 * 是逐分量）。
+         [(eq? head 'mul)
+          (unless (= 2 (length args))
+            (error 'glsl "mul 需要 2 个参数：~s" e))
+          (apply glsl-bin "*" (map rw-expr args))]
          [(and (memq head '(+ -)) (= (length args) 1))
           (glsl-unary (symbol->string head) (rw-expr (car args)))]
          [(assq head unary-ops)
@@ -252,7 +263,13 @@
          [(eq? head 'unless)
           (glsl-if (glsl-unary "!" (rw-expr (car args))) (rw-body (cdr args)))]
          [(eq? head 'if)
-          (error 'glsl "if 是表达式（三元 ?:）；语句位置的分支请用 when / unless / cond：~s" s)]
+          ;; (if c then) / (if c then else)：then/else 各是一个**语句**；
+          ;; 多语句用 (begin ...)（会生成一个块）。
+          (unless (or (= 2 (length args)) (= 3 (length args)))
+            (error 'glsl "if 需要 2 或 3 个参数（条件 + then [+ else]）：~s" s))
+          (glsl-if (rw-expr (cadr s))
+                   (rw-stmt (caddr s))
+                   (and (= 3 (length args)) (rw-stmt (cadddr s))))]
          [(eq? head 'cond) (rw-cond args)]
          [(eq? head 'for)
           (glsl-for (rw-decl (car args))
@@ -363,7 +380,7 @@
 
   ;; 语句位置的预处理指令头（不含 if：(if ...) 在表达式位置是三元，只在顶层才是 #if）
   (define directive-keywords
-    '(define-macro undef ifdef ifndef elif else endif error pragma extension))
+    '(define-macro undef ifdef ifndef pp-if pp-elif pp-else pp-endif error pragma extension))
 
   ;; 是否为「表达式形态」：原子（符号/数字/布尔）也算表达式，
   ;; 否则函数体以裸符号/数字结尾时自动 return 会失效（落到语句位置报错）。
@@ -453,17 +470,18 @@
                           [(ifdef) glsl-macro-ifdef]
                           [else glsl-macro-ifndef])
                (glsl-name (car args)))]
-             [(if elif error)
+             ;; ★ 预处理条件用 pp- 前缀，避免和语句位置的 (if c t e) 撞名
+             [(pp-if pp-elif error)
               (unless (= (length args) 1)
                 (error 'glsl "bad ~a：~s（应为 (~a 值)）" head s head))
-              ((case head [(if) glsl-macro-if]
-                          [(elif) glsl-macro-elif]
+              ((case head [(pp-if) glsl-macro-if]
+                          [(pp-elif) glsl-macro-elif]
                           [else glsl-macro-error])
                (rw-macro-token (car args)))]
-             [(else endif)
+             [(pp-else pp-endif)
               (unless (null? args)
                 (error 'glsl "bad ~a：~s（应为 (~a)）" head s head))
-              ((if (eq? head 'else) glsl-macro-else glsl-macro-endif))]
+              ((if (eq? head 'pp-else) glsl-macro-else glsl-macro-endif))]
              [(pragma)
               (unless (and (= (length args) 1) (string? (car args)))
                 (error 'glsl "bad pragma：~s（应为 (pragma \"...\")）" s))
@@ -621,9 +639,9 @@
 
 ;; ---------- 入口宏：纯编译期变换 ----------
 
-;; (glsl-fragment name form ...) —— 定义可复用的静态片段。
-;; 展开为宏 name：(name ...) → (quote <chunk>)；chunk = (list entry ...)，已 flatten（含嵌套 glsl-splice）。
-(define-syntax (glsl-fragment stx)
+;; (fragment name form ...) —— 定义可复用的静态片段。
+;; 展开为宏 name：(name ...) → (quote <chunk>)；chunk = (list entry ...)，已 flatten（含嵌套 splice）。
+(define-syntax (fragment stx)
   (syntax-case stx ()
     [(_ name form ...)
      (identifier? #'name)
@@ -634,9 +652,9 @@
              (lambda (use-stx)
                (syntax (quote entries-stx))))))]))
 
-;; glsl-splice 只作为 (glsl ...) / glsl-fragment 顶层的 form 被识别；单独出现时清晰报错。
-(define-syntax (glsl-splice stx)
-  (raise-syntax-error 'glsl-splice "glsl-splice 只能写在 (glsl ...) 或 glsl-fragment 的顶层" stx))
+;; splice 只作为 (glsl ...) / (fragment ...) 顶层的 form 被识别；单独出现时清晰报错。
+(define-syntax (splice stx)
+  (raise-syntax-error 'splice "splice 只能写在 (glsl ...) 或 (fragment ...) 的顶层" stx))
 
 ;; (glsl form ...) —— 展开期跑完 S1–S8，产出 shader-program 常量。
 (define-syntax (glsl stx)
@@ -650,10 +668,10 @@
                       (list 'datum->shader-program
                             (list 'quote (shader-program->datum program)))))]))
 
-;; (glsl-shader name form ...) —— 定义具名 shader，并**额外把编译期接口表绑为 <name>-interface**。
+;; (shader name form ...) —— 定义具名 shader，并**额外把编译期接口表绑为 <name>-interface**。
 ;;   name          运行期：shader-program（datum->shader-program 重建）
 ;;   <name>-interface  编译期：宏，展开为 (quote <iface-datum>)，供其他宏读取（表驱动代码生成）
-(define-syntax (glsl-shader stx)
+(define-syntax (shader stx)
   (syntax-case stx ()
     [(_ name form ...)
      (identifier? #'name)

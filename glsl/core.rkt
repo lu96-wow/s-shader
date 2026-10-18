@@ -24,13 +24,13 @@
 
 (provide
  ;; 拼装
- glsl-shader glsl-version glsl-raw
+ glsl-version glsl-raw
  ;; 预处理指令
  glsl-macro-define glsl-macro-undef
  glsl-macro-ifdef glsl-macro-ifndef glsl-macro-if glsl-macro-elif glsl-macro-else glsl-macro-endif
  glsl-macro-error glsl-macro-pragma glsl-macro-extension
  ;; 共享小工具
- ->str ident-char?
+ ->str ident-char? join-spaces
  ;; 声明
  glsl-decl glsl-in glsl-out glsl-uniform glsl-const glsl-layout glsl-layout-qual
  ;; 表达式
@@ -49,9 +49,7 @@
 
 ;; ---------- 0. 拼装 ----------
 
-;; 拼装：片段之间用空格分隔（换行交给 pretty.rkt 的 shader-pretty）
-(define (glsl-shader . parts)
-  (string-join (map ->str parts) " "))
+;; 拼装：片段之间用空格分隔 → 直接用 core 的 join-spaces（emit-util.rkt）
 
 (define (glsl-version n [profile #f])
   (if profile

@@ -20,6 +20,47 @@
   (check-equal? (shader-program-src (glsl form ...))
                 (shader-pretty raw)))
 
+;; ---------- if：语句 if/else + 表达式三元 ----------
+
+;; (if c then else) 是**语句**（Racket 两分支 if）
+(check-glsl "void main() { if ((a > b)) { c = a; } else { c = b; } }"
+            ((define (main) void
+               (if (> a b) (set! c a) (set! c b)))))
+
+;; 只有 then 分支
+(check-glsl "void main() { if ((a > b)) { c = a; } }"
+            ((define (main) void
+               (if (> a b) (set! c a)))))
+
+;; 多语句用 (begin ...)
+(check-glsl "void main() { if ((a > b)) { c = a; d = a; } }"
+            ((define (main) void
+               (if (> a b) (begin (set! c a) (set! d a))))))
+
+;; else 分支再套 if → else if（不套多余花括号）
+(check-glsl "void main() { if ((a == 1)) { c = 1; } else if ((a == 2)) { c = 2; } else { c = 3; } }"
+            ((define (main) void
+               (if (= a 1)
+                   (set! c 1)
+                   (if (= a 2) (set! c 2) (set! c 3))))))
+
+;; 表达式位置的三元是 if-ternary（不再叫 if）
+(check-glsl "void main() { float x = ((a > 0.0) ? 1.0 : 2.0); }"
+            ((define (main) void
+               (float x (if-ternary (> a 0.0) 1.0 2.0)))))
+
+;; 三元可嵌套
+(check-glsl "void main() { float x = ((a > 0.0) ? ((b > 0.0) ? 1.0 : 2.0) : 3.0); }"
+            ((define (main) void
+               (float x (if-ternary (> a 0.0)
+                                     (if-ternary (> b 0.0) 1.0 2.0)
+                                     3.0)))))
+
+;; (mul a b)：跨方言矩阵乘；GLSL 方言直接发 *
+(check-glsl "void main() { vec4 p = (uMVP * vec4(1.0, 2.0, 3.0, 1.0)); }"
+            ((define (main) void
+               (vec4 p (mul uMVP (vec4 1.0 2.0 3.0 1.0))))))
+
 ;; ---------- 基本嵌套 ----------
 
 ;; when 套 when
@@ -88,13 +129,13 @@
 
 (check-glsl "float f(float a, float b) { return ((a > 0.0) ? ((b > 0.0) ? 1.0 : 2.0) : 3.0); }"
             ((define (f (float a) (float b)) float
-               (if (> a 0.0) (if (> b 0.0) 1.0 2.0) 3.0))))
+               (if-ternary (> a 0.0) (if-ternary (> b 0.0) 1.0 2.0) 3.0))))
 
 ;; 三元作 when 条件
 (check-glsl "void main() { if ((a ? (b > 0.0) : (c < 0.0))) { d = ((e > 0.0) ? 1.0 : 2.0); } }"
             ((define (main) void
-               (when (if a (> b 0.0) (< c 0.0))
-                 (set! d (if (> e 0.0) 1.0 2.0))))))
+               (when (if-ternary a (> b 0.0) (< c 0.0))
+                 (set! d (if-ternary (> e 0.0) 1.0 2.0))))))
 
 ;; ---------- break / continue / return / discard ----------
 

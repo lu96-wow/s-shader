@@ -155,7 +155,8 @@ void main() {
 | `(bit-and a b)` `(bit-or a b)` `(bit-xor a b)` `(bit-not a)` | `& \| ^ ~` |
 | `(not a)` / `(! a)` | `!` |
 | `(- a)` `(+ a)` | 一元 `-` / `+` |
-| `(if c t e)` | 三元 `c ? t : e`（**表达式位置**） |
+| `(if-ternary c t e)` | 三元 `c ? t : e`（**表达式位置**） |
+| `(mul a b)` | 矩阵乘：GLSL 发 `(a * b)`（Slang 发 `mul(a, b)`） |
 | `#t` / `#f` | `true` / `false` |
 
 - 赋值：`(set! x v)`、复合 `(+= x v)`（左值在前）、`(++ i)` / `(-- i)`。
@@ -177,7 +178,8 @@ void main() {
 (break) (continue) (return) (return v) (discard)
 ```
 
-> `if` 在**语句位置不可用**（保留给三元）；分支用 `when` / `unless` / `cond`。
+> `(if c then [else])` 是**语句**（Racket 两分支 if）；多语句用 `(begin ...)`。
+> **表达式**位置的三元是 `(if-ternary c t e)`；`when` / `unless` / `cond` 是语句糖。
 > `for` 的 init 必须是单个声明 `(int i 0)`。
 
 ### 函数
@@ -201,14 +203,15 @@ void main() {
 ```racket
 (define-macro FOO 1)                           ; #define FOO 1
 (define-macro (ADD a b) (+ a b))               ; #define ADD(a, b) (a + b)
-(ifdef FOO) (else) (endif)
-(if 1) (elif 0) (else) (endif)
+(ifdef FOO) (pp-else) (pp-endif)
+(pp-if 1) (pp-elif 0) (pp-else) (pp-endif)
 (undef BAR) (error "unsupported")
 (pragma "STDGL invariant(all)")
 (extension GL_OES_standard_derivatives enable)
 ```
 
-指令在顶层和函数体内都可以用（`if`/`elif` 仅顶层，因为语句位置的 `(if ...)` 是三元）。
+指令在顶层和函数体内都可以用。条件指令带 `pp-` 前缀（`pp-if`/`pp-elif`/`pp-else`/`pp-endif`），
+以免和语句位置的 `(if ...)` 撞名。
 
 ### 动态 shader：完全编译期，无运行期插值
 
@@ -218,13 +221,13 @@ void main() {
 
 > 想在**编译期**复用静态 GLSL 片段（并保留 interface/源映射）时，见下节。
 
-### 片段复用：`glsl-fragment` / `glsl-splice`
+### 片段复用：`fragment` / `splice`
 
 把样板 GLSL 定义一次、多处复用；**拼接在重写之前的 surface 级**，所以词表与 interface 都保持一致。
 
 ```racket
-;; 定义可复用片段（编译期；可嵌套 glsl-splice）
-(glsl-fragment lighting
+;; 定义可复用片段（编译期；可嵌套 splice）
+(fragment lighting
   (struct Light (vec3 position) (vec3 color))
   (uniform Light uLight)
   (define (lambert (vec3 n) (vec3 l)) float (max (dot n l) 0.0)))
@@ -232,13 +235,13 @@ void main() {
 ;; 组合
 (define shader
   (glsl (version 330 core)
-        (glsl-splice lighting)        ; ← 拼接（只能在 (glsl ...) / glsl-fragment 顶层）
+        (splice lighting)        ; ← 拼接（只能在 (glsl ...) / fragment 顶层）
         (uniform vec3 uEye)
         (in vec3 aPos)
         (define (main) void (set! gl_Position (vec4 aPos 1.0)))))
 ```
 
-- 片段可**递归**（片段内 `(glsl-splice …)` 另一个片段）；
+- 片段可**递归**（片段内 `(splice …)` 另一个片段）；
 - **词表共享**：片段定义的 `struct` 在合并后可见；
 - **interface 合并**：`shader-program-interface` 含所有片段声明的 uniform/in/out；
 - **报错指向片段定义处**；
@@ -247,12 +250,12 @@ void main() {
 > 这是**编译期**拼接，不是运行期；运行期变化仍走 `shader-compile` 字符串。
 > 完整设计（能力边界、数据载体、机制）见 [COMPOSITION.md](COMPOSITION.md)。
 
-### 编译期表：`glsl-shader`
+### 编译期表：`shader`
 
-`(glsl-shader name form ...)` 与 `(glsl ...)` 一样在编译期产出 shader，**并额外把编译期接口表绑为 `<name>-interface`**（一个宏，展开为 `(quote <iface-datum>)`）。
+`(shader name form ...)` 与 `(glsl ...)` 一样在编译期产出 shader，**并额外把编译期接口表绑为 `<name>-interface`**（一个宏，展开为 `(quote <iface-datum>)`）。
 
 ```racket
-(glsl-shader vert
+(shader vert
   (version 330 core)
   (layout (location 0) in vec3 aPos)
   (uniform mat4 uMVP))
@@ -421,7 +424,7 @@ raco test test          # 无需显示器
 ```
 
 覆盖：表面语法重写、标识符便携层（变量/函数/关键字/类型别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、
-向量与矩阵运算、u8/u16 标量数组、控制流嵌套、**片段组合（glsl-fragment/glsl-splice）**、
+向量与矩阵运算、u8/u16 标量数组、控制流嵌套、**片段组合（fragment/splice）**、
 `#lang shader/glsl` 顶层入口。
 
 ## License

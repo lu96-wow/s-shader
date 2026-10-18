@@ -123,7 +123,7 @@
             ((define-macro MY-FLAG 1)
              (ifdef MY-FLAG)
              (uniform float u-x)
-             (endif)))
+             (pp-endif)))
 
 ;; 函数式宏的名字/参数也归一
 (check-glsl "#define ADD_TWO(a_b) (a_b + 2.0)"

@@ -272,9 +272,9 @@
  ((version 330 core)
   (ifdef FOO)
   (uniform float uFoo)
-  (else)
+  (pp-else)
   (uniform float uBar)
-  (endif))
+  (pp-endif))
  "#version 330 core\n#ifdef FOO\nuniform float uFoo;\n#else\nuniform float uBar;\n#endif")
 
 ;; ifndef / undef
@@ -282,18 +282,18 @@
  ((ifndef BAR)
   (undef BAZ)
   (define-macro BAR 2)
-  (endif))
+  (pp-endif))
  "#ifndef BAR\n#undef BAZ\n#define BAR 2\n#endif")
 
 ;; if / elif / else（整数常量表达式：0 / 1 / 名字）
 (check-src
- ((if 1)
+ ((pp-if 1)
   (define-macro A 1)
-  (elif 0)
+  (pp-elif 0)
   (define-macro B 2)
-  (else)
+  (pp-else)
   (define-macro C 3)
-  (endif))
+  (pp-endif))
  "#if 1\n#define A 1\n#elif 0\n#define B 2\n#else\n#define C 3\n#endif")
 
 ;; 函数体内嵌指令（按 brace 深度缩进，整行原样）
@@ -302,7 +302,7 @@
   (define (main) void
     (ifdef DEBUG)
     (raw "foo();")
-    (endif)))
+    (pp-endif)))
  "#version 330 core\nvoid main() {\n  #ifdef DEBUG\n  foo();\n  #endif\n}")
 
 ;; extension / error / pragma

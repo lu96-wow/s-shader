@@ -9,7 +9,7 @@
 
 | # | 决策 | 结果 |
 |---|---|---|
-| 1 | chunk 绑定机制 | 选 **(ii)**：`glsl-fragment` 绑成**宏**，展开为 `(quote chunk)`；`glsl` 用 `local-expand` 认出 quote 取值（**无 `eval`**） |
+| 1 | chunk 绑定机制 | 选 **(ii)**：`fragment` 绑成**宏**，展开为 `(quote chunk)`；`glsl` 用 `local-expand` 认出 quote 取值（**无 `eval`**） |
 | 2 | 源映射 | 默认 **定义处**（片段自身的 `path/line`） |
 | 3 | 命名隔离 | 交给编译期：合并后检测重复定义，**冲突即编译期报错**（不自动改名） |
 | 4 | 运行期求值 | **移除 `glsl-unquote`**；`glsl` 变成**完全编译期变换**，shader 在编译期完全确定（“定位”）。**以后拓展也只走编译期** |
@@ -70,7 +70,7 @@ surface (glsl …)
 | 能力 | 判定 |
 |---|---|
 | 静态片段复用（struct / 函数 / 声明块） | ✅ |
-| **递归组合**（片段内 glsl-splice 片段） | ✅（展开期 flatten；循环→宏展开不终止报错） |
+| **递归组合**（片段内 splice 片段） | ✅（展开期 flatten；循环→宏展开不终止报错） |
 | 共享用户 `struct` 词表 | ✅ |
 | 完整 interface（合并后一次反射） | ✅ |
 | 源映射回溯到片段定义 | ✅ |
@@ -96,7 +96,7 @@ surface (glsl …)
 ;; 片段 = 有序 entry 串（chunk = (list entry ...)）；可直接被 (quote …) 携带
 ```
 
-> **实现说明**：entry 用**纯数据**（list）而非 struct——因为第 3 步的 chunk 要被 `glsl-fragment`
+> **实现说明**：entry 用**纯数据**（list）而非 struct——因为第 3 步的 chunk 要被 `fragment`
 > 宏 `(quote …)` 成字面量传给 `glsl`，而 struct 实例不是可 quote 的 datum。故入口统一为
 > `(list datum source)`，用 `entry-datum` / `entry-source` 取值。
 
@@ -110,13 +110,13 @@ surface (glsl …)
 ## 5. 机制（决策 1：宏 + `local-expand` 认 quote）——已实现
 
 ```racket
-(glsl-fragment lighting (struct Light …) (uniform Light uLight) …)
+(fragment lighting (struct Light …) (uniform Light uLight) …)
 ;; 展开为：
 (define-syntax lighting (lambda (stx) #'(quote <chunk-datum>)))
 
-;; glsl 展开时对 (glsl-splice lighting)：
+;; glsl 展开时对 (splice lighting)：
 (define e (local-expand #'lighting 'expression '()))
-;; e = (#%quote <chunk-datum>)  → 取出 <chunk-datum>.entries，拼进当前列表，递归处理其 glsl-splice
+;; e = (#%quote <chunk-datum>)  → 取出 <chunk-datum>.entries，拼进当前列表，递归处理其 splice
 ```
 
 - 无 `eval`；跨模块只需普通 `(require "fragments.rkt")`（宏是 phase-1 绑定，默认导入）。
@@ -130,7 +130,7 @@ surface (glsl …)
 - 每条 entry 带片段定义处的 `source`；拼进来后仍映射回定义处。
 - 主 `(glsl …)` 的形式用其使用处 syntax 的 `path/line`。
 - 于是 GLSL 编译报错（由 opengl 包的 `shader-compile` 定位）**默认指向片段定义行**。
-- 使用点（`(glsl-splice …)` 位置）暂不记录；将来如需「定义处 + 使用链」再扩。
+- 使用点（`(splice …)` 位置）暂不记录；将来如需「定义处 + 使用链」再扩。
 
 ---
 
@@ -151,19 +151,19 @@ surface (glsl …)
 #lang glsl
 
 ;; 可复用片段（编译期）
-(glsl-fragment lighting
+(fragment lighting
   (struct Light (vec3 position) (vec3 color))
   (uniform Light uLight)
   (define (lambert (vec3 n) (vec3 l)) float
     (max (vdot n l) 0.0)))
 
-(glsl-fragment fog (uniform float uFogDensity))
+(fragment fog (uniform float uFogDensity))
 
 ;; 组合
 (define shader
   (glsl (version 330 core)
-        (glsl-splice lighting)
-        (glsl-splice fog)
+        (splice lighting)
+        (splice fog)
         (uniform vec3 uEye)
         (in vec3 aPos)
         (define (main) void
@@ -178,7 +178,7 @@ surface (glsl …)
 ```racket
 (define-syntax (make-attenuation stx)
   (syntax-parse stx
-    [(_ n) #`(glsl-splice #,(build-attenuation-chunk (syntax->datum #'n)))]))
+    [(_ n) #`(splice #,(build-attenuation-chunk (syntax->datum #'n)))]))
 
 (glsl … (make-attenuation 3) …)
 ```
@@ -193,18 +193,18 @@ surface (glsl …)
    - 产出 `(datum->shader-program '<program-datum>)`（新增 `shader-program->datum`/`datum->shader-program`）；
    - **移除 `glsl-unquote`**（含 `walk`/splice-marker/`tree->syntax`）与相关测试。
 2. ✅ **内部数据统一为 `entries`**（`datum + source`），编译期流程抽成 `entries->program`。
-3. ✅ **`glsl-splice`**：`forms->entries` 识别顶层 `(glsl-splice …)`，`local-expand` 取 `(quote chunk)`，拼接 entries。
-4. ✅ **`glsl-fragment`**：编译期用 `forms->entries` 得到 chunk，绑成宏（展开为 `(quote chunk)`）。
+3. ✅ **`splice`**：`forms->entries` 识别顶层 `(splice …)`，`local-expand` 取 `(quote chunk)`，拼接 entries。
+4. ✅ **`fragment`**：编译期用 `forms->entries` 得到 chunk，绑成宏（展开为 `(quote chunk)`）。
 5. ✅ **合并后跑一次 S3–S8**；`check-duplicates` 检测 struct/函数/变量重名（决策 3）。
 6. ✅ 测试 `composition-test.rkt`：词表共享、interface 合并、定义处源映射、递归、冲突/错误报错。
 
-   （待补：“编译期参数化片段”的示例测试；实现上已支持——宏展开出 `(glsl-splice …)` 即可。）
+   （待补：“编译期参数化片段”的示例测试；实现上已支持——宏展开出 `(splice …)` 即可。）
 
 **风险 / 待定**
 - 移除 `glsl-unquote` 后，重写库测试；确认没有别的内部依赖。
-- `glsl-fragment` 内**不能**有运行期表达式（决策 4），文档要写明。
+- `fragment` 内**不能**有运行期表达式（决策 4），文档要写明。
 - 重复定义检测的范围（struct/函数/uniform/…）与判据需定。
-- `local-expand` 标识符宏展开的细节；必要时退化为 `(glsl-splice (lighting))` 调用形式。
+- `local-expand` 标识符宏展开的细节；必要时退化为 `(splice (lighting))` 调用形式。
 
 ---
 

@@ -242,12 +242,12 @@ raco test core-test   # 无需显示器
 ## 10. 片段组合与编译期表（已实现）
 
 让 GLSL 片段能**递归组合**、复用样板——在 **surface 级拼接**（重写之前）、共享词表与 interface。
-已实现 `glsl-fragment`（定义片段）+ `glsl-splice`（拼接）+ `glsl-shader`（定义 shader 并暴露编译期接口表）；
+已实现 `fragment`（定义片段）+ `splice`（拼接）+ `shader`（定义 shader 并暴露编译期接口表）；
 数据载体为纯数据 entry（`(datum source)`）。
 
 ```racket
-(glsl-fragment lighting (struct Light (vec3 position) (vec3 color)) (uniform Light uLight))
-(glsl (version 330 core) (glsl-splice lighting) …)
+(fragment lighting (struct Light (vec3 position) (vec3 color)) (uniform Light uLight))
+(glsl (version 330 core) (splice lighting) …)
 ```
 
 编译期表可用于宏代码生成（见 opengl 包 `core/meta/`）。详见 [COMPOSITION.md](COMPOSITION.md)。
