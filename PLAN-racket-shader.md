@@ -209,6 +209,15 @@ racket-shader/
         改为 `#lang glsl` / `#lang slang` 两个独立集合（见下一条）。
 - [ ] **step 4** `shader/slang` 实现：`core.rkt`（原语）/ `rewrite.rkt` / `attrs.rkt`
       （`[[vk::…]]`、`[numthreads]`、`[shader]`）/ 语义注解（`(float4 pos SV-Position)`）/ 日志解析。
-- [ ] **包改名**：目录 `racket-glsl` → `racket-shader`，`raco pkg remove racket-glsl` +
-      `raco pkg install --link racket-shader`（会连带 `racket-glsl-opengl` 与其依赖声明，
-      以及 study-opengl 里 20 个 `#lang glsl-opengl` 头）。
+- [x] **包改名 / 跨仓库迁移（已完成）**
+      - 目录：`racket-glsl` → `racket-shader`，`racket-glsl-opengl` → `racket-shader-opengl`
+      - 包：多集合 `shader` / `glsl` / `slang`；`racket-shader-opengl` 依赖 `racket-shader`，
+        集合名仍是 `glsl-opengl`（`#lang glsl-opengl` 不变）
+      - `racket-shader-opengl` 适配：模块路径（`shader/*`、`glsl/*`）、API 改名、
+        `shader/type` 与 `shader/interface` 分开 require、日志解析拆到 `glsl/log`
+      - 已 `raco pkg uninstall` 旧包并 `raco pkg install --link` + `raco setup`
+      - study-opengl：仅 4 个值层 API 改名（`glsl-struct`→`shader-struct`、
+        `glsl-byte-size`→`shader-byte-size`、`glsl-stride-bytes`→`shader-stride-bytes`、
+        `glsl-program-interface`→`shader-program-interface`），22 个 `#lang glsl-opengl` 头不动
+      - 验证：racket-shader 12/12 测试、racket-shader-opengl 8/8 测试（真 GL 上下文）、
+        study-opengl 28 个文件全部编译通过、两个示例可运行
