@@ -26,6 +26,12 @@
 
 ;; ---------- 属性 ----------
 
+;; 属性实参：符号/字符串加引号（shader("vertex")、image_format("rgba8")），数字原样
+(define (attr-arg->str x)
+  (cond [(string? x) (format "\"~a\"" x)]
+        [(symbol? x) (format "\"~a\"" x)]
+        [else (->str x)]))
+
 ;; (list "vk::binding" 0 0) → "[[vk::binding(0, 0)]] "；空列表 → ""
 ;; 无参数的属性写成 "[[unroll]]"
 (define (slang-attr attrs)
@@ -38,7 +44,8 @@
           (define args (cdr a))
           (if (null? args)
               (format "[[~a]]" name)
-              (format "[[~a(~a)]]" name (string-join (map ->str args) ", "))))
+              (format "[[~a(~a)]]" name
+                      (string-join (map attr-arg->str args) ", "))))
         " ")
        " ")))
 

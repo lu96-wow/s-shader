@@ -104,4 +104,87 @@
 (check-equal? (slang-annotation-role 'nointerpolation) 'prefix)
 (check-equal? (slang-name 'u-model-view) "u_model_view")
 
+
+;; ============================================================
+;; step 4：函数体 / 表达式 / 语句 / 入口属性
+;; ============================================================
+
+(define vs
+  (slang
+    (struct VS-IN (float3 pos POSITION) (float2 uv TEXCOORD0))
+    (struct VS-OUT (float4 pos SV-Position) (float2 uv TEXCOORD0))
+    (cbuffer Camera (set 0) (binding 0) (float4x4 view) (float4x4 proj))
+    (define (vs-main (VS-IN i)) (attr (shader vertex)) VS-OUT
+      (VS-OUT o)
+      (set! (.pos o) (mul proj (mul view (float4 (.pos i) 1.0))))
+      (set! (.uv o) (.uv i))
+      o)))
+
+(define vssrc (shader-program-src vs))
+
+(check-true (string-contains? vssrc "struct VS_IN {"))
+(check-true (string-contains? vssrc "float3 pos : POSITION;"))
+(check-true (string-contains? vssrc "[[shader(\"vertex\")]] VS_OUT vs_main(VS_IN i) {"))
+(check-true (string-contains? vssrc "VS_OUT o;"))
+;; 矩阵乘 → mul()；Slang 的 * 逐分量
+(check-true (string-contains? vssrc "o.pos = mul(proj, mul(view, float4(i.pos, 1.0)));"))
+(check-true (string-contains? vssrc "o.uv = i.uv;"))
+(check-true (string-contains? vssrc "return o;"))
+;; 结构体名/字段名走 Slang 的 '-'→'_'（这里大写保持，因为写的是 VS-IN）
+(check-true (string-contains? vssrc "struct VS_OUT {"))
+
+;; 语句：if / for / cond / while / switch / break / continue / discard
+(define cs
+  (slang
+    (define (cs-main (uint3 id SV-DispatchThreadID) (inout float3 acc))
+            (attr (shader compute) (numthreads 8 8 1)) void
+      (if (> (.x id) 0) (set! acc (float3 1.0 0.0 0.0)) (set! acc (float3 0.0)))
+      (when (> (.y id) 2) (return))
+      (unless #f (discard))
+      (for (uint i 0) (< i 8) (++ i)
+        (if (= i 3) (break))
+        (if (= i 4) (continue)))
+      (cond [(= (.x id) 1) (continue)]
+            [else (set! acc (float3 2.0))])
+      (while (> (.z id) 0) (-- (.z id))))))
+
+(define cssrc (shader-program-src cs))
+(check-true (string-contains? cssrc "[[shader(\"compute\")]] [[numthreads(8, 8, 1)]] void cs_main(uint3 id : SV_DispatchThreadID, inout float3 acc) {"))
+(check-true (string-contains? cssrc "if ((id.x > 0)) {"))
+(check-true (string-contains? cssrc "for (uint i = 0; (i < 8); ++i) {"))
+(check-true (string-contains? cssrc "if ((i == 3)) {"))
+(check-true (string-contains? cssrc "if ((id.x == 1)) {"))
+(check-true (string-contains? cssrc "discard;"))
+
+;; 表达式语义差异
+(define expr-src
+  (shader-program-src
+   (slang
+     (define (f) float4
+       (float4 a (sample tex samp uv))
+       (float4 b (sample-level tex samp uv 2.0))
+       (float c (* a b))
+       (float d (mul a b))
+       (bool e (xor (< c 1.0) (> d 2.0)))
+       b))))
+
+(check-true (string-contains? expr-src "tex.Sample(samp, uv)"))
+(check-true (string-contains? expr-src "tex.SampleLevel(samp, uv, 2.0)"))
+(check-true (string-contains? expr-src "(a * b)"))
+(check-true (string-contains? expr-src "mul(a, b)"))
+(check-true (string-contains? expr-src "((c < 1.0) != (d > 2.0))"))
+
+;; type-form 的构造器 / 数组 / 限定符
+(define decl-src
+  (shader-program-src
+   (slang
+     (define (g) void
+       (groupshared (array float 64) data)
+       (const float PI 3.14159)
+       (static int counter 0)))))
+
+(check-true (string-contains? decl-src "groupshared float data[64];"))
+(check-true (string-contains? decl-src "const float PI = 3.14159;"))
+(check-true (string-contains? decl-src "static int counter = 0;"))
+
 (displayln "slang 全部测试通过")

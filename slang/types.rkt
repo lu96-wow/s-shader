@@ -25,7 +25,7 @@
 ;; ---------- 双向表 ----------
 
 ;; 标量：两边同名
-(define scalar-pairs '((float . float) (int . int) (uint . uint) (bool . bool) (double . double)))
+(define scalar-pairs '((void . void) (float . float) (int . int) (uint . uint) (bool . bool) (double . double)))
 
 ;; 向量：canonical vec3 ⇄ float3
 (define vector-pairs

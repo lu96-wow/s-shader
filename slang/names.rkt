@@ -65,7 +65,9 @@
 
 (define modifier-names
   '(nointerpolation linear centroid noperspective sample precise
-    groupshared static const extern inline))
+    groupshared static const extern inline
+    ;; 参数/存储限定符（与 GLSL 同形）
+    in out inout uniform))
 
 ;; 不规则别名（通用 '-'→'_' 会给出 no_interpolation 这种错拼写）
 (define modifier-explicit-aliases

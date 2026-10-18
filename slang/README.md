@@ -10,17 +10,15 @@
 | 表面语法 → Slang（`(slang)` 宏，编译期变换） | `rewrite.rkt` | 方言 |
 | 类型名词汇表、标识符引擎、模型/反射、美化、产物、报错 | `shader/types`、`shader/*` | core |
 
-## 当前能力（声明侧）
+## 当前能力
 
 ```racket
 #lang slang
 
 (slang
   ;; 结构体字段带注解：语义（后缀）、修饰符（前缀）
-  (struct vs-out
-    (float4 pos SV-Position)
-    (float2 uv  TEXCOORD0)
-    (float3 nrm NORMAL nointerpolation))
+  (struct VS-IN  (float3 pos POSITION) (float2 uv TEXCOORD0))
+  (struct VS-OUT (float4 pos SV-Position) (float2 uv TEXCOORD0))
 
   ;; 常量缓冲块：set / binding + 字段（含参数化类型）
   (cbuffer Camera (set 0) (binding 0)
@@ -29,16 +27,26 @@
     ((texture-2d float4) albedo))
 
   ;; 特化常量
-  (const-id 0 int TILE 8))
+  (const-id 0 int TILE 8)
+
+  ;; 函数：参数/返回值 + 入口属性 + 语句/表达式
+  (define (vs-main (VS-IN i)) (attr (shader vertex)) VS-OUT
+    (VS-OUT o)
+    (set! (.pos o) (mul proj (mul view (float4 (.pos i) 1.0))))
+    (set! (.uv o) (.uv i))
+    o))
 ```
 
 产出：
 
 ```slang
-struct vs_out {
+struct VS_IN {
+  float3 pos : POSITION;
+  float2 uv : TEXCOORD0;
+};
+struct VS_OUT {
   float4 pos : SV_Position;
   float2 uv : TEXCOORD0;
-  nointerpolation float3 nrm : NORMAL;
 };
 [[vk::binding(0, 0)]] cbuffer Camera {
   float4x4 view;
@@ -46,7 +54,30 @@ struct vs_out {
   Texture2D<float4> albedo;
 };
 [[vk::constant_id(0)]] const int TILE = 8;
+[[shader("vertex")]] VS_OUT vs_main(VS_IN i) {
+  VS_OUT o;
+  o.pos = mul(proj, mul(view, float4(i.pos, 1.0)));
+  o.uv = i.uv;
+  return o;
+}
 ```
+
+### 表面语法（方言差异部分）
+
+| 写法 | 产出 | 说明 |
+|---|---|---|
+| `(* a b)` | `(a * b)` | Slang 的 `*` 是**逐分量** |
+| `(mul a b)` | `mul(a, b)` | 跨方言的矩阵乘 |
+| `(sample tex samp uv)` | `tex.Sample(samp, uv)` | GLSL 的 `texture()` 在 Slang 是方法 |
+| `(sample-level tex samp uv lod)` | `tex.SampleLevel(samp, uv, lod)` | |
+| `(xor a b)` | `(a != b)` | Slang 没有 `^^` |
+| `(attr (shader vertex) (numthreads 8 8 1))` | `[[shader("vertex")]] [[numthreads(8, 8, 1)]]` | 写在参数表与返回类型之间 |
+| `(uint3 id SV-DispatchThreadID)` | `uint3 id : SV_DispatchThreadID` | 参数上的语义后缀 |
+| `(inout float3 acc)` | `inout float3 acc` | 参数限定符 |
+| `(array float 64) data` | `float data[64]` | 数组维度写在**名字后面**（与 GLSL 不同） |
+
+语句与 GLSL 方言一致：`begin` / `when` / `unless` / `if`（语句）/ `if-ternary`（三元）/
+`cond` / `for` / `while` / `do-while` / `switch` / `break` / `continue` / `return` / `discard` / `raw`。
 
 接口反射里三个 Slang 专用槽都被用上：
 
@@ -66,13 +97,15 @@ struct vs_out {
   `canonical mat3x2 ⇄ slang float2x3`。
 - 语义/修饰符查表对大小写与 `-`/`_` 不敏感：`SV-Position` / `sv_position` / `SV_Position` 等价。
 
-## 待办（step 4）
+## 待办
 
-- [ ] 表达式 / 语句 / 函数体（`if` / `if-ternary` / `mul` 语义按 §Q1 决策：`*` 逐分量，`mul()` 矩阵乘）
-- [ ] 入口属性：`(attr (shader vertex) (numthreads 8 8 1))`、`sv-position` 等系统值输入
-- [ ] `push-constant` / `param-block` / `sbuffer` 的读写变体
+- [x] 表达式 / 语句 / 函数体（`*` 逐分量、`mul()`、`if` / `if-ternary`）
+- [x] 入口属性（`[shader(…)]` / `[numthreads(…)]`）、系统值参数（`SV_DispatchThreadID` …）
+- [x] 数组维度按 HLSL 规则写在名字后面
+- [ ] `push-constant` / `param-block` / 读写缓冲（`RWStructuredBuffer` / `RWTexture2D`）
 - [ ] `parse-error-log`（`file:line:col: error` 格式）
-- [ ] 组合宏 `fragment` / `splice`（需与 GLSL 方言的版本讨论是否上提到 core，见下）
+- [ ] 原子/屏障/波内建函数（`InterlockedAdd`、`GroupMemoryBarrierWithGroupSync`、`WaveActiveSum` …）的表
+- [ ] 组合宏 `fragment` / `splice`（需决定是否上提到 core，见下）
 
 ## 已知假设（未验证，step 4 接 slangc 时确认）
 

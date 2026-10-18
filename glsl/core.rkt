@@ -12,15 +12,14 @@
 ;;   5. 换行/缩进不属于核心（见 pretty.rkt）；
 ;;      例外：#version 等预处理指令必须独占一行，所以 glsl-version 保留结尾 \n。
 ;;
-;; 分层：
-;;   core.rkt          本层：字符串生成原语
-;;   pretty.rkt        美化（字符串 → 多行缩进文本）
-;;   shader-program.rkt  (glsl ...) 的产物：带源映射的 GLSL 程序
-;;   rewrite.rkt       (glsl ...) 宏（表面语法 → core 调用）
+;; 表达式 / 语句 / 函数这些「C 系共同形状」在 core 的 shader/emit.rkt；
+;; 本模块只放 GLSL 特有的：`#version`、预处理指令、`layout(...)`，并把
+;; 共同形状用 glsl- 前缀再导出（保持 (glsl ...) 实现侧的名字稳定）。
 ;; ============================================================
 
 (require racket/format racket/string
-         shader/emit-util)
+         shader/emit-util
+         shader/emit)
 
 (provide
  ;; 拼装
@@ -136,101 +135,37 @@
           (string-join (map layout-item->str spec) ", ")
           (if (null? quals) "" (string-append " " (string-join quals " ")))))
 
-;; ---------- 2. 表达式 ----------
+;; ---------- 2. 表达式 / 3. 语句 / 4. 函数 ----------
+;; 共同形状由 shader/emit.rkt 提供；这里用 glsl- 前缀再导出。
 
-(define (glsl-call f . args)
-  (format "~a(~a)" (->str f) (string-join (map ->str args) ", ")))
+(define glsl-call emit-call)
+(define glsl-ctor emit-ctor)
+(define glsl-bin emit-bin)
+(define glsl-unary emit-unary)
+(define glsl-ternary emit-ternary)
+(define glsl-assign emit-assign)
+(define glsl-cassign emit-cassign)
+(define glsl-swizzle emit-swizzle)
+(define glsl-field emit-field)
+(define glsl-aref emit-aref)
+(define glsl-inc emit-inc)
+(define glsl-dec emit-dec)
 
-;; 构造器 = 类型名当函数调用
-(define glsl-ctor glsl-call)
+(define glsl-stmt emit-stmt)
+(define glsl-block emit-block)
+(define glsl-if emit-if)
+(define glsl-for emit-for)
+(define glsl-while emit-while)
+(define glsl-do-while emit-do-while)
+(define glsl-switch emit-switch)
+(define glsl-break emit-break)
+(define glsl-continue emit-continue)
+(define glsl-return emit-return)
+(define glsl-discard emit-discard)
 
-(define (glsl-bin op . args)
-  (format "(~a)" (string-join (map ->str args) (format " ~a " (->str op)))))
-
-(define (glsl-unary op x)
-  (format "(~a~a)" (->str op) (->str x)))
-
-(define (glsl-ternary c t e)
-  (format "(~a ? ~a : ~a)" (->str c) (->str t) (->str e)))
-
-(define (glsl-assign l r)
-  (format "~a = ~a" (->str l) (->str r)))
-
-(define (glsl-cassign op l r)
-  (format "~a ~a= ~a" (->str l) (->str op) (->str r)))
-
-(define (glsl-swizzle comps v)
-  (format "~a.~a" (->str v) (->str comps)))
-
-(define (glsl-field f s)
-  (format "~a.~a" (->str s) (->str f)))
-
-(define (glsl-aref a i)
-  (format "~a[~a]" (->str a) (->str i)))
-
-(define (glsl-inc x [post #f])
-  (if post (format "~a++" (->str x)) (format "++~a" (->str x))))
-
-(define (glsl-dec x [post #f])
-  (if post (format "~a--" (->str x)) (format "--~a" (->str x))))
-
-;; ---------- 3. 语句 ----------
-
-(define (glsl-stmt e) (format "~a;" (->str e)))
-
-(define (glsl-block . stmts)
-  (format "{ ~a }" (join-spaces stmts)))
-
-(define (glsl-if c t [e #f])
-  (if e
-      (format "if (~a) ~a else ~a"
-              (->str c) (wrap-block t)
-              ;; else 分支若本身是 if → 生成 else if（不套多余的 {}）
-              (if (string-prefix? (->str e) "if ") (->str e) (wrap-block e)))
-      (format "if (~a) ~a" (->str c) (wrap-block t))))
-
-(define (glsl-for init cond update . body)
-  (format "for (~a; ~a; ~a) ~a"
-          (trim-semicolon (->str init)) (->str cond) (->str update)
-          (wrap-block (join-spaces body))))
-
-(define (glsl-while cond . body)
-  (format "while (~a) ~a" (->str cond) (wrap-block (join-spaces body))))
-
-(define (glsl-do-while cond . body)
-  (format "do ~a while (~a);" (wrap-block (join-spaces body)) (->str cond)))
-
-;; switch：cases = (list (list "1" "{...}") ...)，default = "{...}" 或 #f
-;; 每个 case 体是块，shader-pretty 靠 {} 自动排版
-(define (glsl-switch test cases [default #f])
-  (format "switch (~a) { ~a ~a }"
-          (->str test)
-          (string-join (for/list ([c cases])
-                         (format "case ~a: ~a" (->str (car c)) (cadr c)))
-                       " ")
-          (if default (format "default: ~a" default) "")))
-
-(define (glsl-break) "break;")
-(define (glsl-continue) "continue;")
-
-(define (glsl-return [v #f])
-  (if v (format "return ~a;" (->str v)) "return;"))
-
-(define (glsl-discard) "discard;")
-
-;; ---------- 4. 函数 / 结构 ----------
-
-(define (glsl-param quals type name)
-  (format "~a~a ~a" (quals->prefix quals) (->str type) (->str name)))
-
-(define (glsl-fn name ret params . body)
-  (format "~a ~a(~a) { ~a }"
-          (->str ret) (->str name)
-          (string-join (map ->str params) ", ")
-          (join-spaces body)))
-
-(define (glsl-field-decl type name)
-  (format "~a ~a;" (->str type) (->str name)))
+(define glsl-param emit-param)
+(define glsl-fn emit-fn)
+(define glsl-field-decl emit-field-decl)
 
 (define (glsl-struct-decl name . fields)
   (format "struct ~a { ~a };"
