@@ -13,10 +13,7 @@
 (define collection 'multi)
 
 (define deps '("base"))
-(define build-deps '("rackunit-lib"))   ; test 用
-
-;; test / experiments 不参与包编译（experiments 会 require 外部包 vulkan + slangc）
-(define compile-omit-paths '("test" "experiments"))
+(define build-deps '("rackunit-lib"))   ; 测试用（测试目录自带 info.rkt，不参与 raco setup）
 
 (define pkg-desc "Shader DSLs for Racket: #lang glsl, #lang slang (+ core library 'shader')")
 (define pkg-authors '("lu96"))
