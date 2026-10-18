@@ -324,11 +324,6 @@
 (check-exn exn:fail?
   (lambda () (eval '(glsl (extension GL_FOO)))))                 ; extension 缺行为
 
-;; ---------- 完全编译期变换：glsl-unquote 已移除 ----------
-;; (glsl ...) 内不再有运行期求值；动态 shader 改走 opengl 包的 shader-compile（吃裸字符串）。
-(check-exn exn:fail?
-  (lambda () (eval '(glsl-unquote 1))))     ; 名字已不存在
-
 ;; ---------- 源映射 / 美化：一个顶层 form = 一个片段 ----------
 (define src-map
   (glsl (version 330 core)

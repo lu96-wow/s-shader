@@ -144,12 +144,15 @@ spirv-val shader.spv
 
 自动化测试：`test/slang-compile-test.rkt`（找不到 slangc 就跳过）。
 
-## 已知假设
+## 已验证 / 仍未验证
 
-1. `[[vk::binding(B, S)]] cbuffer Name { … };` 这种「属性 + cbuffer」的 Vulkan 写法
-   能被 slangc 接受（等价写法还有 `struct Name{…}; [[vk::binding(B,S)]] ConstantBuffer<Name> inst;`）。
-2. `const-id` 发射成 `[[vk::constant_id(N)]] const int TILE = 8;` 时，特化常量在 Slang 里的
-   推荐写法是否需要 `Uniform`/`static const` 修饰。
+- ✅ `[[vk::binding(B, S)]] cbuffer Name { … };`（属性 + cbuffer 的 Vulkan 写法）被 slangc 接受，
+  编译出的 SPIR-V 里 `DescriptorSet S / Binding B` 正确。
+- ✅ `[[vk::push_constant]] cbuffer Push { … };`、`ParameterBlock<T>`、`[[vk::constant_id(N)]]`
+  同样被接受（见 `test/slang-compile-test.rkt`）。
+- ⚠️ 特化常量目前发射成 `[[vk::constant_id(N)]] const T 名 = 值;`，没有加 `Uniform`/`static`；
+  编译通过，但若要按"运行期可覆盖"的方式流水线特化，还需在 Vulkan 侧配合
+  `VkSpecializationInfo` 验证一次。
 
 ## 与 GLSL 方言的模块边界
 

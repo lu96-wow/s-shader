@@ -5,8 +5,8 @@
 ;;
 ;; 运行：racket test/lang-test.rkt
 ;; 验证 #lang glsl 把纯 GLSL 部分装好：
-;;   Part 1 语言：(glsl ...) 宏 / 接口反射 / 源映射
-;;   Part 2 值层：GLSL 风格构造与运算（vec3 / vadd / mat4-* / shader-struct / gl-vec）
+;;   语言层：(glsl ...) 宏 / 接口反射 / 源映射
+;;   值层：GLSL 风格构造与运算（vec3 / vadd / mat4-* / shader-struct / gl-vec）
 ;;   报错层：parse-error-log 等纯函数可用
 ;; （OpenGL 部分的 #lang glsl-opengl 测试见另一个包的 test/lang-opengl-test.rkt）
 ;; 注意：本文件是「(glsl) 外」的普通 Racket 代码；同一符号 vec3 在 (glsl ...) 内是

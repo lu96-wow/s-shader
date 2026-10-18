@@ -256,14 +256,14 @@ void main() {
 - 重名（`struct` / 函数 / 顶层变量）在**编译期报错**。
 
 > 这是**编译期**拼接，不是运行期；运行期变化仍走 `shader-compile` 字符串。
-> 完整设计（能力边界、数据载体、机制）见 [COMPOSITION.md](COMPOSITION.md)。
+> 机制与边界见 [DESIGN.md](DESIGN.md) §10。
 
-### 编译期表：`shader`
+### 编译期表：`glsl-shader`
 
-`(shader name form ...)` 与 `(glsl ...)` 一样在编译期产出 shader，**并额外把编译期接口表绑为 `<name>-interface`**（一个宏，展开为 `(quote <iface-datum>)`）。
+`(glsl-shader name form ...)` 与 `(glsl ...)` 一样在编译期产出 shader，**并额外把编译期接口表绑为 `<name>-interface`**（一个宏，展开为 `(quote <iface-datum>)`）。
 
 ```racket
-(shader vert
+(glsl-shader vert
   (version 330 core)
   (layout (location 0) in vec3 aPos)
   (uniform mat4 uMVP))
@@ -407,20 +407,20 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
     types.rkt                类型目录（vec3 / mat4 / sampler2D）
     names.rkt                标识符别名表（变量/函数/关键字，四张表分开）
     core.rkt                 字符串原语（layout / #version / 预处理 …）
-    rewrite.rkt              (glsl ...) 宏 + fragment/splice/shader
+    rewrite.rkt              (glsl ...) 宏 + glsl-fragment / glsl-splice / glsl-shader
     log.rkt                  驱动日志 → shader-error
-  slang/                     ── Slang 方言（#lang slang，声明侧骨架）──
+  slang/                     ── Slang 方言（#lang slang）──
     main.rkt  lang/reader.rkt
     types.rkt                float3 / float4x4 ↔ canonical vec3 / mat4
     names.rkt                语义 / 修饰符 / 属性表
     core.rkt                 [[vk::…]] / cbuffer / 语义注解 / 特化常量
     rewrite.rkt              (slang ...) 宏
-  test/                      测试（无需显示器）
-```
+  test/                      测试（无需显示器；`raco test test`）
+  experiments/               端到端示例（slangc + racket-vulkan，不参与包编译）
 ```
 
-细节见 [DESIGN.md](DESIGN.md)；值层内部见 [shader/value/README.md](shader/value/README.md)；
-语言层见 [glsl/README.md](glsl/README.md)；共享类型词汇见 [types.md](types.md)。
+细节见 [DESIGN.md](DESIGN.md)（分层、值层、类型词汇、报错、片段组合）与
+[slang/README.md](slang/README.md)（Slang 方言的表面语法与 Vulkan 编译要点）。
 
 ## 测试
 

@@ -12,7 +12,7 @@
 ;;     ↓ 生成代码
 ;;   (datum->shader-program '<program-datum>)   —— 运行期只重建，无逻辑
 ;;
-;; ★ 没有运行期求值：`glsl-unquote` 已移除（见 ../COMPOSITION.md §2）。
+;; ★ 没有运行期求值：chunk 是纯数据，拼在编译期完成（见 ../DESIGN.md §10）。
 ;;   动态 shader 请在 Racket 里拼整段 GLSL 字符串，交给 opengl 包的 shader-compile。
 ;; ============================================================
 
@@ -57,7 +57,7 @@
 
   ;; ---------- 内部数据：entry = surface datum + 源（“list 挂表”） ----------
   ;; entry = (list datum source)    source = #f | (list path line text)
-  ;; 用纯数据而非 struct：将来 chunk 可直接被 (quote …) 携带（COMPOSITION.md §4）。
+  ;; 用纯数据而非 struct：chunk 可直接被 (quote …) 携带（见 DESIGN.md §10）。
   (define (make-entry datum source) (list datum source))
   (define (entry-datum e) (car e))
   (define (entry-source e) (cadr e))

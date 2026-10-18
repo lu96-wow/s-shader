@@ -1,6 +1,7 @@
 # racket-shader · 设计与逻辑分层
 
 本包 = **core（值层 + 类型/声明模型 + 接口反射 + 产物/美化/报错）+ 两个方言（GLSL / Slang）**。
+三个集合：`shader`（core）、`glsl`、`slang`。
 包边界即依赖边界：**不依赖 `opengl`**，所以 `#lang glsl` / `#lang slang` / `(require shader)`
 永远不会拉进 OpenGL。
 
@@ -111,8 +112,7 @@ core 因此不需要任何转换函数。
 - CPU `shader-struct` 的字段类型在编译期规范成 canonical，所以 `<Name>-fields` 里存 `vec3`，
   而不是用户写的 `vec-3`。
 
-细节见 [`glsl/README.md`](glsl/README.md) 与
-[`types.md`](types.md)。
+类型词汇表的 API 与依赖方向见 §8。
 
 ---
 
@@ -145,7 +145,26 @@ core 因此不需要任何转换函数。
 值层 Racket 风格名（`vec-add` / `matrix-ref` …）**不随 `#lang glsl` 导出**；需要时直接
 `(require shader/value/vec)` 等。
 
-细节见 [`shader/value/README.md`](shader/value/README.md)。
+存储类别（`kind`）与 ffi 类型的对应：
+
+| kind | ffi 类型 | 对应着色语言类型 |
+|---|---|---|
+| `f32` | `f32vector` | `float / vec* / mat*` |
+| `f64` | `f64vector` | `double / dvec* / dmat*` |
+| `s32` | `s32vector` | `int / ivec*` |
+| `u32` | `u32vector` | `uint / uvec*`、`bool / bvec*`（内存里是 32 位 0/1） |
+| `u16` | `u16vector` | 无（CPU 索引数组 `u16-array`） |
+| `u8` | `u8vector`（即 `bytes`） | 无（CPU 像素数组 `u8-array`） |
+
+命名约定：
+
+- 实现用 Racket 传统名（`vec-add`、`matrix-ref`、`vec-buffer`）；rename 用着色器风格名
+  （`vadd`、`mat4-ref`、`vec-array`）——只有后者随 `#lang glsl` / `#lang slang` 导出。
+- 取内部存储（零拷贝）用 `X-data`；真正类型转换用 `->type`。
+- `shader-struct` 的字段名可用连字符（`model-pos`），字段类型也可用别名（`vec-3`），
+  编译期规范成 canonical 存进 `<Name>-fields`。
+- `shader-struct` 是**自然布局**（顶点属性用）；它与 Vulkan UBO/推送常量的 std140/std430
+  并不相同（`vec3` 在对齐上不同），目前只适合顶点属性/结构化缓冲。
 
 ---
 
@@ -226,9 +245,21 @@ core 因此不需要任何转换函数。
 - `shader/value/type.rkt`：**CPU 可表示子集** + 存储属性（f32/f64/s32/u32/u16/u8）；
   输入别名先规范成 canonical。
 
+```racket
+(type-canonical-name 'vec-3)     ; "vec3"
+(type-canonical-symbol 'vec-3)   ; 'vec3
+(type-alias? 'vec-3)             ; #t
+(builtin-type? 'sampler-2d)      ; #t
+type-alias-forms                 ; ((alias . canonical) ...)
+builtin-type-names               ; canonical symbols
+```
+
+依赖方向：`shader/types.rkt ← shader/type.rkt / glsl/types.rkt / shader/value/type.rkt`
+（`types.rkt` 不依赖任何方言）。
+
 这样类型别名只有一张表，语言层和值层不会各自维护一份。新增内建类型时：
 更新 `types.rkt` 的 canonical 清单（别名自动生成），再按需更新
-`interface.rkt` 的类型解析 / `shader/value/type.rkt` 的 CPU 子集。
+`glsl/types.rkt` 的目录 / `shader/value/type.rkt` 的 CPU 子集。
 
 ---
 
@@ -238,8 +269,12 @@ core 因此不需要任何转换函数。
 raco test test   # 无需显示器
 ```
 
-覆盖：表面语法重写、标识符便携层（连字符 / 内建变量别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、
-向量与矩阵运算、u8/u16 标量数组、控制流嵌套、`#lang glsl` 顶层入口。
+覆盖：表面语法重写（含语句 `if` / `if-ternary` / `mul`）、标识符便携层、字符串原语、美化、
+接口反射、报错定位、向量构造/布局/运算、u8/u16 标量数组、片段组合、`#lang glsl` 顶层入口、
+Slang 方言（注解 / cbuffer / push constant / 参数块 / 资源 / 函数体）。
+
+两个可选的外部工具测试（找不到工具自动跳过）：`test/glsl-compile-test.rkt`（glslangValidator）、
+`test/slang-compile-test.rkt`（slangc），它们会核对 SPIR-V 与接口反射的 `DescriptorSet/Binding`。
 
 ---
 
@@ -254,4 +289,14 @@ raco test test   # 无需显示器
 (glsl (version 330 core) (glsl-splice lighting) …)
 ```
 
-编译期表可用于宏代码生成（见 opengl 包 `core/meta/`）。详见 [COMPOSITION.md](COMPOSITION.md)。
+要点（原设计日志已并入本节）：
+
+- **拼接在 surface 级**（重写之前）：chunk 是纯数据 `(datum source)`，所以词表、interface、
+  源映射都按「拼好的整块」算，不需要运行期求值。
+- **`glsl-splice` 只在顶层**：`(glsl ...)` / `(glsl-fragment ...)` 的第一层；片段内部可递归。
+- **重名在编译期报错**：`struct` / 函数 / 顶层变量按归一后的源码名比较
+  （`foo-bar` 与 `foo_bar` 冲突）。
+- **源映射指向片段定义处**：报错行定位到片段定义文件的那一行，而不是使用点。
+- **能力边界**：只有静态片段复用；运行期变化走 `shader-compile` 的裸字符串。
+- 编译期表可用于宏代码生成（见 opengl 包 `core/meta/` 的 `glsl-vertex-layout!` /
+  `glsl-uniform-setter!`）。
