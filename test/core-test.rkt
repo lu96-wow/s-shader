@@ -144,8 +144,6 @@
      (glsl-if corner-cond (glsl-stmt (glsl-assign "c" corner-c)))
      (glsl-stmt (glsl-assign "FragColor" frag-color)))))
 
-(displayln "===== 02 课片元着色器（核心层组装，未美化）=====")
-(displayln frag)
-(newline)
-(displayln "===== 美化后 =====")
-(displayln (shader-pretty frag))
+;; 组装结果与美化结果（调试时可 uncomment 看）
+;; (displayln frag) (displayln (shader-pretty frag))
+
