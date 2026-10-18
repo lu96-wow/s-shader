@@ -229,13 +229,13 @@ void main() {
 
 > 想在**编译期**复用静态 GLSL 片段（并保留 interface/源映射）时，见下节。
 
-### 片段复用：`fragment` / `splice`
+### 片段复用：`glsl-fragment` / `glsl-splice`
 
 把样板 GLSL 定义一次、多处复用；**拼接在重写之前的 surface 级**，所以词表与 interface 都保持一致。
 
 ```racket
 ;; 定义可复用片段（编译期；可嵌套 splice）
-(fragment lighting
+(glsl-fragment lighting
   (struct Light (vec3 position) (vec3 color))
   (uniform Light uLight)
   (define (lambert (vec3 n) (vec3 l)) float (max (dot n l) 0.0)))
@@ -243,13 +243,13 @@ void main() {
 ;; 组合
 (define shader
   (glsl (version 330 core)
-        (splice lighting)        ; ← 拼接（只能在 (glsl ...) / fragment 顶层）
+        (glsl-splice lighting)        ; ← 拼接（只能在 (glsl ...) / fragment 顶层）
         (uniform vec3 uEye)
         (in vec3 aPos)
         (define (main) void (set! gl_Position (vec4 aPos 1.0)))))
 ```
 
-- 片段可**递归**（片段内 `(splice …)` 另一个片段）；
+- 片段可**递归**（片段内 `(glsl-splice …)` 另一个片段）；
 - **词表共享**：片段定义的 `struct` 在合并后可见；
 - **interface 合并**：`shader-program-interface` 含所有片段声明的 uniform/in/out；
 - **报错指向片段定义处**；

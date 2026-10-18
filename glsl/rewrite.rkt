@@ -40,7 +40,7 @@
 
 ;; 只导出方言自己的东西：core 的 type/interface/program/pretty/error 由
 ;; shader 集合（core 语言）提供，避免在 #lang glsl 里重复导出。
-(provide glsl fragment splice shader
+(provide glsl glsl-fragment glsl-splice glsl-shader
          builtin-type-of
          (all-from-out "core.rkt")
          (all-from-out "names.rkt")
@@ -72,24 +72,24 @@
   (define (source-info f)
     (list (src-path-string f) (syntax-line f) (syntax->datum f)))
 
-  ;; (splice <片段名>) → 该片段的 entries（片段宏展开为 (quote chunk)）
-  (define (splice->entries stx)
+  ;; (glsl-splice <片段名>) → 该片段的 entries（片段宏展开为 (quote chunk)）
+  (define (glsl-splice->entries stx)
     (define parts (syntax->list stx))
     (unless (and parts (= 2 (length parts)))
-      (error 'glsl "bad splice：~s（应为 (splice 片段名)）" (syntax->datum stx)))
+      (error 'glsl "bad glsl-splice：~s（应为 (splice 片段名)）" (syntax->datum stx)))
     (define frag-stx (cadr parts))
     (define d (syntax->datum (local-expand frag-stx 'expression '())))
     (unless (and (pair? d) (memq (car d) '(quote #%quote)) (= 2 (length d)))
-      (error 'glsl "splice 的目标必须是片段宏（展开为 quote 数据）：~s" (syntax->datum frag-stx)))
+      (error 'glsl "glsl-splice 的目标必须是片段宏（展开为 quote 数据）：~s" (syntax->datum frag-stx)))
     (cadr d))
 
-  ;; forms（syntax 列表）→ entries；识别顶层 (splice …) 并拼入片段
+  ;; forms（syntax 列表）→ entries；识别顶层 (glsl-splice …) 并拼入片段
   (define (forms->entries forms)
     (append*
      (for/list ([f (in-list forms)])
        (define d (syntax->datum f))
-       (if (and (pair? d) (eq? (car d) 'splice))
-           (splice->entries f)
+       (if (and (pair? d) (eq? (car d) 'glsl-splice))
+           (glsl-splice->entries f)
            (list (make-entry d (source-info f)))))))
 
   ;; ---------- 运算符表 ----------
@@ -639,9 +639,9 @@
 
 ;; ---------- 入口宏：纯编译期变换 ----------
 
-;; (fragment name form ...) —— 定义可复用的静态片段。
+;; (glsl-fragment name form ...) —— 定义可复用的静态片段。
 ;; 展开为宏 name：(name ...) → (quote <chunk>)；chunk = (list entry ...)，已 flatten（含嵌套 splice）。
-(define-syntax (fragment stx)
+(define-syntax (glsl-fragment stx)
   (syntax-case stx ()
     [(_ name form ...)
      (identifier? #'name)
@@ -652,9 +652,9 @@
              (lambda (use-stx)
                (syntax (quote entries-stx))))))]))
 
-;; splice 只作为 (glsl ...) / (fragment ...) 顶层的 form 被识别；单独出现时清晰报错。
-(define-syntax (splice stx)
-  (raise-syntax-error 'splice "splice 只能写在 (glsl ...) 或 (fragment ...) 的顶层" stx))
+;; splice 只作为 (glsl ...) / (glsl-fragment ...) 顶层的 form 被识别；单独出现时清晰报错。
+(define-syntax (glsl-splice stx)
+  (raise-syntax-error 'glsl-splice "glsl-splice 只能写在 (glsl ...) 或 (fragment ...) 的顶层" stx))
 
 ;; (glsl form ...) —— 展开期跑完 S1–S8，产出 shader-program 常量。
 (define-syntax (glsl stx)
@@ -668,10 +668,10 @@
                       (list 'datum->shader-program
                             (list 'quote (shader-program->datum program)))))]))
 
-;; (shader name form ...) —— 定义具名 shader，并**额外把编译期接口表绑为 <name>-interface**。
+;; (glsl-shader name form ...) —— 定义具名 shader，并**额外把编译期接口表绑为 <name>-interface**。
 ;;   name          运行期：shader-program（datum->shader-program 重建）
 ;;   <name>-interface  编译期：宏，展开为 (quote <iface-datum>)，供其他宏读取（表驱动代码生成）
-(define-syntax (shader stx)
+(define-syntax (glsl-shader stx)
   (syntax-case stx ()
     [(_ name form ...)
      (identifier? #'name)
