@@ -9,9 +9,9 @@
 |---|---|
 | `shader` | core：CPU 值层 + 类型/声明模型 + 接口反射 + 产物/美化/报错（方言无关）；`(require shader)` |
 | `glsl` | `#lang glsl` + `(glsl ...)` 宏（GLSL 方言） |
-| `slang` | `#lang slang` + `(slang ...)` 宏（Slang 方言，声明侧骨架） |
+| `slang` | `#lang slang` + `(slang ...)` 宏（Slang 方言：声明侧 + 函数体/表达式/语句/入口属性） |
 
-- GL 对象/状态/窗口，以及 shader 的编译/链接，属于另一个独立包 `racket-glsl-opengl`
+- GL 对象/状态/窗口，以及 shader 的编译/链接，属于另一个独立包 `racket-shader-opengl`
   （`#lang glsl-opengl`），它单向依赖本包。
 
 设计与逻辑分层见 [DESIGN.md](DESIGN.md)。
@@ -225,7 +225,7 @@ void main() {
 
 `(glsl ...)` 是**完全编译期**变换：展开期就把 shader 定下来，运行期只是重建产物。因此
 **没有** `glsl-unquote` 之类的运行期插值口。需要按运行期数据造 shader 时，请在 Racket 里
-拼出**整段 GLSL 字符串**，交给 `racket-glsl-opengl` 的 `shader-compile`（它接受裸字符串）。
+拼出**整段 GLSL 字符串**，交给 `racket-shader-opengl` 的 `shader-compile`（它接受裸字符串）。
 
 > 想在**编译期**复用静态 GLSL 片段（并保留 interface/源映射）时，见下节。
 
@@ -277,7 +277,7 @@ void main() {
 (vertex-fields)   ; => ((pos vec3) (normal vec3) (uv vec2))
 ```
 
-这两张表使「宏在编译期读着表生成 GL 代码」成为可能（如 `racket-glsl-opengl` 的 `glsl-vertex-layout!`）。
+这两张表使「宏在编译期读着表生成 GL 代码」成为可能（如 `racket-shader-opengl` 的 `glsl-vertex-layout!`）。
 
 ## CPU 侧 API
 
@@ -385,7 +385,7 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 (parse-error-log log)            ; GLSL 方言（glsl/log.rkt）：原始日志 → shader-error 列表
 ```
 
-真正的编译触发与抛异常在 `racket-glsl-opengl` 的 `shader-compile`。
+真正的编译触发与抛异常在 `racket-shader-opengl` 的 `shader-compile`。
 
 ## 分层与文件
 

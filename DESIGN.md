@@ -1,9 +1,10 @@
-# racket-glsl · 设计与逻辑分层
+# racket-shader · 设计与逻辑分层
 
-本包 = **Part 1（GLSL 语言）+ Part 2（CPU 值层）+ 报错层**。包边界即依赖边界：
-**不依赖 `opengl`**，所以 `#lang glsl` / `(require glsl)` 永远不会拉进 OpenGL。
+本包 = **core（值层 + 类型/声明模型 + 接口反射 + 产物/美化/报错）+ 两个方言（GLSL / Slang）**。
+包边界即依赖边界：**不依赖 `opengl`**，所以 `#lang glsl` / `#lang slang` / `(require shader)`
+永远不会拉进 OpenGL。
 
-（OpenGL 侧在独立包 `racket-glsl-opengl` 中，不属于本仓库。）
+（OpenGL 侧在独立包 `racket-shader-opengl` 中，不属于本仓库。）
 
 ---
 
@@ -234,7 +235,7 @@ core 因此不需要任何转换函数。
 ## 9. 测试
 
 ```bash
-raco test core-test   # 无需显示器
+raco test test   # 无需显示器
 ```
 
 覆盖：表面语法重写、标识符便携层（连字符 / 内建变量别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、

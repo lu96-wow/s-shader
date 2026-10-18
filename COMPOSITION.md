@@ -52,7 +52,7 @@ surface (glsl …)
 - **源映射指向定义处**（决策 2）：编译期就算好每个 form 的 `path/line`。
 - **interface 编译期已知**：为「编译期宏驱动 GL 样板」（如 P4）提供可能——宏可读接口表生成代码。
 - **shader 编译期定位**：可离线导出 `.glsl`、喂给将来的 program-binary / SPIR-V 静态编译路径
-  （见 `racket-glsl-opengl` 包的设计文档 §6）。
+  （见 `racket-shader-opengl` 包的设计文档 §6）。
 - **简化宏实现**（§2.2）。
 
 ### 2.4 代价 / 破坏性
@@ -60,7 +60,7 @@ surface (glsl …)
 - **移除 `glsl-unquote` 是破坏性变更**：库测试（`rewrite-test`/`control-flow-test`/`lang-test`/`edge-test`）需重写；
   `study-opengl` 未使用，不受影响。
 - **动态 shader** 不再能用 `glsl-unquote` 在 `(glsl …)` 内插值。改为：在 Racket 里拼出**整段 GLSL 字符串**，
-  交给 `racket-glsl-opengl` 的 `shader-compile`（它已支持裸字符串）。这是明确的边界。
+  交给 `racket-shader-opengl` 的 `shader-compile`（它已支持裸字符串）。这是明确的边界。
 - shader 的文本在**模块加载时**即确定（编译期产物），不再是「加载时按运行期数据现算」。
 
 ---
