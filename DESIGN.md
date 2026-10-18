@@ -41,13 +41,31 @@
 
 | 逻辑 | 文件 | 约束 |
 |---|---|---|
-| GLSL 字符串原语 | `glsl/core.rkt` | 全返回字符串、不含换行；预处理指令例外 |
-| 标识符便携层 | `glsl/names.rkt` | 变量 / 函数 / 关键字别名；四张表分开；唯一转换点 |
-| 共享类型词汇表 | `vocab/type-names.rkt` | canonical 类型名 + 类型别名；语言层与值层共享 |
-| 表面语法 → GLSL（`(glsl ...)` 宏） | `glsl/rewrite.rkt` | **完全编译期变换**；无运行期求值 |
-| 美化 | `glsl/pretty.rkt` | 纯函数；按 `; { } ( )` 换行缩进；行首 `#` 整行原样 |
-| 类型模型 / 接口反射 | `glsl/interface.rkt` | `shader-type` / `shader-var`；只读、不组合 |
-| 产物 + 源映射 | `glsl/program.rkt` | 源映射只到**行**；行区间由各 form 美化行数累计；datum 往返 |
+| （core）类型名词汇表 | `types.rkt` | canonical 类型名 + 类型别名；语言层与值层共享 |
+| （core）标识符别名引擎 | `shader/ident.rkt` | camel→kebab、别名表构造、`-`→`_`；**表由方言传入** |
+| （core）类型 / 声明模型 | `shader/type.rkt` | `shader-type` / `shader-var`；只读、不组合 |
+| （core）接口反射 | `shader/interface.rkt` | 按名字/限定符/kind 查询 + datum 往返 |
+| （core）美化 | `shader/pretty.rkt` | 纯函数；按 `; { } ( )` 换行缩进；行首 `#` 整行原样 |
+| （core）产物 + 源映射 | `shader/program.rkt` | 源映射只到**行**；行区间由各 form 美化行数累计；datum 往返 |
+| （core）报错定位 / 渲染 | `shader/error.rkt` | 行级定位 + 三视角渲染；日志解析在方言层 |
+| （core）拼装小工具 | `shader/emit-util.rkt` | `->str` / `wrap-block` / `quals->prefix` … |
+| （方言）类型目录 | `glsl/types.rkt` | 拼写 → `shader-type`（Slang 另有一份） |
+| （方言）标识符表 | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | 变量 / 函数 / 关键字别名；四张表分开 |
+| （方言）字符串原语 | `glsl/core.rkt` | 全返回字符串、不含换行；预处理指令例外 |
+| （方言）表面语法 | `glsl/rewrite.rkt` | **完全编译期变换**；无运行期求值 |
+| （方言）日志解析 | `glsl/log.rkt` | 位置格式是编译器相关的，每方言一个 |
+
+**core / 方言的边界**（唯一允许的依赖方向）：
+
+```
+types.rkt  value/          ← 两方言共用（CPU 值层与类型名词汇）
+shader/                    ← core：模型、反射、产物、美化、报错
+glsl/  slang/              ← 方言：类型目录 + 标识符表 + 原语 + 表面语法 + 日志解析
+```
+
+方言**不得** require 另一个方言；core **不得** require 任何方言。
+「表面名 → 源码里的标识符」由方言在构造 `shader-var` 时算好存进 `source-name` 字段，
+core 因此不需要任何转换函数。
 
 几个关键点：
 - **全部在编译期**：重写、美化、行映射、接口反射都在展开期完成；产物是编译期常量，
@@ -61,12 +79,12 @@
 
 | 表 | 文件 | 表面写法 → GLSL 文本 |
 |---|---|---|
-| 用户标识符 | `glsl/names.rkt` | `wow-name-type` → `wow_name_type` |
-| 内建变量 | `glsl/names.rkt` | `gl-position` / `gl_position` → `gl_Position`；`gl-in` → `gl_in` |
-| 内建函数 | `glsl/names.rkt` | `texture-size` / `texture_size` → `textureSize`；`d-fdx` → `dFdx` |
-| 关键字（qualifier） | `glsl/names.rkt` | `read-only` → `readonly`；`no-perspective` → `noperspective`；`in-out` → `inout` |
-| 关键字（layout key） | `glsl/names.rkt` | `early-fragment-tests` → `early_fragment_tests`；`local-size-x` → `local_size_x` |
-| 内建类型 | `vocab/type-names.rkt` | `vec-3` / `vec_3` → `vec3`；`sampler-2d` → `sampler2D`；`mat-3x2` → `mat3x2` |
+| 用户标识符 | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | `wow-name-type` → `wow_name_type` |
+| 内建变量 | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | `gl-position` / `gl_position` → `gl_Position`；`gl-in` → `gl_in` |
+| 内建函数 | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | `texture-size` / `texture_size` → `textureSize`；`d-fdx` → `dFdx` |
+| 关键字（qualifier） | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | `read-only` → `readonly`；`no-perspective` → `noperspective`；`in-out` → `inout` |
+| 关键字（layout key） | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | `early-fragment-tests` → `early_fragment_tests`；`local-size-x` → `local_size_x` |
+| 内建类型 | `types.rkt` | `vec-3` / `vec_3` → `vec3`；`sampler-2d` → `sampler2D`；`mat-3x2` → `mat3x2` |
 
 - **表互不串用**：变量名不会命中函数别名，函数名不会命中变量别名；关键字只用于
   qualifier/layout key；类型名只用于类型位置。
@@ -127,7 +145,7 @@
 
 ---
 
-## 4. 报错层 · `glsl/error.rkt`（纯函数）
+## 4. 报错层 · `shader/error.rkt`（定位/渲染）+ `glsl/log.rkt`（解析）
 
 编译报错的**解析 / 定位 / 渲染**留在纯包（不碰 opengl，便于离线复用）：
 
@@ -195,17 +213,17 @@
 ## 8. 唯一共享点：GLSL 类型词汇表
 
 `(glsl)` 内要判断「这是不是类型」，值层要判断「有没有 CPU 表示」。
-现在 canonical 类型名清单放在共享模块 `vocab/type-names.rkt`：
+现在 canonical 类型名清单放在共享模块 `types.rkt`：
 
-- `vocab/type-names.rkt`：**完整 canonical 类型名清单** + 类型别名表
+- `types.rkt`：**完整 canonical 类型名清单** + 类型别名表
   （`vec-3` → `vec3`、`sampler-2d` → `sampler2D` …）。
-- `glsl/interface.rkt`：**完整**类型模型（scalar/vector/matrix/sampler/image/…）；
+- `shader/type.rkt`：**完整**类型模型（scalar/vector/matrix/sampler/image/…）；
   输入别名先规范成 canonical。
 - `value/type.rkt`：**CPU 可表示子集** + 存储属性（f32/f64/s32/u32/u16/u8）；
   输入别名先规范成 canonical。
 
 这样类型别名只有一张表，语言层和值层不会各自维护一份。新增内建类型时：
-更新 `vocab/type-names.rkt` 的 canonical 清单（别名自动生成），再按需更新
+更新 `types.rkt` 的 canonical 清单（别名自动生成），再按需更新
 `interface.rkt` 的类型解析 / `value/type.rkt` 的 CPU 子集。
 
 ---

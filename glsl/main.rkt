@@ -5,10 +5,11 @@
 ;;
 ;; 在 core（collection: shader）之上叠加 GLSL 方言：
 ;;
-;;   (require shader)               CPU 值层 + 类型词汇表（方言无关）
-;;   glsl/rewrite.rkt               GLSL 语言（(glsl ...) 宏 + 产物 + 接口反射）
-;;                                  （rewrite 已重导 core.rkt / pretty / interface / program / names）
-;;   glsl/error.rkt                 编译报错的解析 / 定位 / 渲染（纯函数）
+;;   (require shader)               core：值层 + 类型/接口/产物/报错
+;;   glsl/types.rkt                 类型目录：拼写 → shader-type
+;;   glsl/names.rkt                 标识符别名表：gl-position → gl_Position …
+;;   glsl/rewrite.rkt               GLSL 语言（(glsl ...) 宏 + fragment/splice）
+;;   glsl/log.rkt                   驱动日志 → shader-error
 ;;
 ;; 本方言不依赖、也不导出任何 OpenGL 绑定（gl-*）或编译/链接胶水。
 ;; 需要那些请用 #lang shader/glsl-opengl（它 require 本语言再叠加 OpenGL 层）。
@@ -20,9 +21,13 @@
 ;; ============================================================
 
 (require shader
+         "types.rkt"
+         "names.rkt"
          "rewrite.rkt"
-         "error.rkt")
+         "log.rkt")
 
 (provide (all-from-out shader)
+         (all-from-out "types.rkt")
+         (all-from-out "names.rkt")
          (all-from-out "rewrite.rkt")
-         (all-from-out "error.rkt"))
+         (all-from-out "log.rkt"))

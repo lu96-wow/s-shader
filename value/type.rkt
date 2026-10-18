@@ -5,7 +5,7 @@
 ;;
 ;; 「逻辑：类型与存储」。这是整个项目里「类型 → 分量数 / 存储类别 / 字节数」的唯一一张表。
 ;; 只覆盖「CPU 有数据表示」的类型；sampler*/image*/void/atomic_uint 属于
-;; glsl/interface.rkt 的完整类型模型。
+;; shader/type.rkt 的完整类型模型。
 ;;
 ;; 存储类别 kind：
 ;;   f32 → float/vec*/mat*        （f32vector）

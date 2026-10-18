@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; ============================================================
-;; 块 1 · (glsl) 内 · glsl/core.rkt —— GLSL 字符串原语（语言实现，隔离），全部返回字符串、不含换行
+;; GLSL 方言 · glsl/core.rkt —— GLSL 字符串原语（语言实现，隔离），全部返回字符串、不含换行
 ;;
 ;; 规则：
 ;;   1. 文本都是字符串（类型 "vec2"、变量 "aPos"、运算符 "+"）；
@@ -19,7 +19,8 @@
 ;;   rewrite.rkt       (glsl ...) 宏（表面语法 → core 调用）
 ;; ============================================================
 
-(require racket/format racket/string)
+(require racket/format racket/string
+         "../shader/emit-util.rkt")
 
 (provide
  ;; 拼装
@@ -39,40 +40,12 @@
  glsl-stmt glsl-block glsl-if glsl-for glsl-while glsl-do-while
  glsl-switch glsl-break glsl-continue glsl-return glsl-discard
  ;; 函数 / 结构
- glsl-param glsl-fn glsl-field-decl shader-struct-decl)
+ glsl-struct-decl glsl-param glsl-fn glsl-field-decl)
 
 ;; ---------- 内部工具 ----------
 
-;; 任意值 → 字符串：字符串原样，其余用 ~a；拒绝有理数（GLSL 无此字面量）
-(define (->str x)
-  (cond
-    [(string? x) x]
-    [(and (exact? x) (rational? x) (not (integer? x)))
-     (error 'glsl "GLSL 没有有理数字面量：~s。请写小数（如 0.5）或用 (/ 1.0 2.0)" x)]
-    [else (~a x)]))
-
-;; GLSL 标识符字符（pretty 的词边界 / shader-error 的标识符识别共用）
-(define (ident-char? c)
-  (or (char-alphabetic? c) (char-numeric? c) (char=? c #\_)))
-
-;; 若是 "{" 开头的块就不重复包，否则包成块（单行，空格分隔）
-(define (block? x) (and (string? x) (string-prefix? x "{")))
-(define (wrap-block x)
-  (if (block? x) x (format "{ ~a }" x)))
-
-;; 去掉结尾分号（for 的 init 子句复用 glsl-decl 时用）
-(define (trim-semicolon str)
-  (if (string-suffix? str ";")
-      (substring str 0 (sub1 (string-length str)))
-      str))
-
-;; 限定符列表 → 前缀字符串（空列表 → ""）
-(define (quals->prefix quals)
-  (if (null? quals) "" (string-append (string-join quals " ") " ")))
-
-;; 一组片段拼成空格分隔文本
-(define (join-spaces xs)
-  (string-join (map ->str xs) " "))
+;; 拼装小工具（->str / ident-char? / block? / wrap-block / trim-semicolon /
+;; quals->prefix / join-spaces）在 core 的 shader/emit-util.rkt —— 两个方言共用。
 
 ;; ---------- 0. 拼装 ----------
 
@@ -261,6 +234,6 @@
 (define (glsl-field-decl type name)
   (format "~a ~a;" (->str type) (->str name)))
 
-(define (shader-struct-decl name . fields)
+(define (glsl-struct-decl name . fields)
   (format "struct ~a { ~a };"
           (->str name) (join-spaces fields)))

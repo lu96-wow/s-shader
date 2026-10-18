@@ -5,7 +5,9 @@
 ;; ============================================================
 (require rackunit
          ffi/vector
-         "../glsl/rewrite.rkt")
+         "../glsl/rewrite.rkt"
+         "../shader/program.rkt"
+         "../shader/pretty.rkt")
 
 ;; (glsl ...) 返回 shader-program；这里比较它的美化 src 与「原始串的美化」。
 ;; 原始串是重写层的真值，shader-pretty 是确定性函数 → 等价于测重写层输出。

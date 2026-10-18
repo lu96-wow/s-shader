@@ -365,9 +365,13 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 编译报错的解析 / 定位 / 渲染在本包（不碰 opengl，便于离线复用）：
 
 ```racket
-(parse-shader-error-log log)     ; 原始日志 → shader-error 列表
-(locate-shader-error src err)    ; GLSL 行 → 覆盖它的顶层 form（行级）
-(render-error log src located)  ; 三段式文本
+;; core（方言无关）：定位 + 三个视角的渲染
+(locate-error src err)           ; 源码行 → 覆盖它的顶层 form（行级）
+(render-log log) (render-source src located) (render-sexpr located)
+(render-error log src located)   ; 三段式文本
+
+;; 方言层：日志格式解析
+(parse-error-log log)            ; GLSL 方言（glsl/log.rkt）：原始日志 → shader-error 列表
 ```
 
 真正的编译触发与抛异常在 `racket-glsl-opengl` 的 `shader-compile`。
@@ -375,18 +379,26 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 ## 分层与文件
 
 ```
-（仓库根 = 包根）
-  main.rkt                  #lang shader/glsl 的模块语言（聚合下列各层）
-  lang/reader.rkt           #lang 声明
-  types.rkt 共享类型词汇表（canonical 类型名 + 类型别名）
-  glsl/                Part 1 · (glsl) 内：GLSL 语言
-    core.rkt                字符串原语
-    names.rkt               标识符便携层（变量/函数/关键字别名，分开成表）
-    rewrite.rkt             (glsl ...) 宏：表面语法 → core
-    pretty.rkt              GLSL 文本美化
-    interface.rkt           类型模型 + 接口反射
-    program.rkt             shader-program 产物 + 源映射
-  value/               Part 2 · (glsl) 外：CPU 值层（实现 + rename 成对）
+（仓库根 = 包根，collection: shader）
+  main.rkt                  #lang shader：core（值层 + 类型模型 + 产物 + 报错）
+  lang/reader.rkt
+  types.rkt                 类型名词汇表（canonical 名 + 别名；语言层与值层共享）
+  shader/                   ── core：方言无关 ──────────────────────
+    ident.rkt               标识符别名引擎（表由方言传入）
+    type.rkt                类型 / 声明模型（shader-type / shader-var）
+    interface.rkt           接口反射 + datum 往返
+    program.rkt             产物 + 行级源映射
+    pretty.rkt              文本美化
+    emit-util.rkt           字符串拼装小工具
+    error.rkt               报错定位 / 渲染
+  glsl/                     ── GLSL 方言（#lang shader/glsl）────────
+    main.rkt  lang/reader.rkt
+    types.rkt               类型目录：拼写 → shader-type
+    names.rkt               标识符别名表（变量/函数/关键字，四张表分开）
+    core.rkt                字符串原语（layout / #version / 预处理 …）
+    rewrite.rkt             (glsl ...) 宏：表面语法 → 原语
+    log.rkt                 驱动日志 → shader-error
+  value/                    ── CPU 值层（两方言共用）─────────────
     type.rkt / rename-type.rkt           类型与存储
     access.rkt / rename-access.rkt       取用
     construct.rkt / rename-construct.rkt 构造
@@ -396,7 +408,7 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
     matrix.rkt / rename-matrix.rkt       矩阵运算
     convert.rkt                          精度转换
     cvector.rkt                          内部底座（无 rename）
-  glsl/error.rkt       报错解析 / 定位 / 渲染（纯函数）
+  test/                     测试（无需显示器）
 ```
 
 细节见 [DESIGN.md](DESIGN.md)；值层内部见 [value/README.md](value/README.md)；
@@ -405,7 +417,7 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 ## 测试
 
 ```bash
-raco test core-test     # 无需显示器
+raco test test          # 无需显示器
 ```
 
 覆盖：表面语法重写、标识符便携层（变量/函数/关键字/类型别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、

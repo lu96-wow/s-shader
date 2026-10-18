@@ -1,57 +1,44 @@
 #lang racket/base
 
 ;; ============================================================
-;; 胶水 · tool/error.rkt —— OpenGL 报错的解析/定位/渲染（纯函数层）
+;; core · shader/error.rkt —— 编译报错的定位与渲染（两个方言共用）
 ;;
 ;; ★ 只保证「行」正确，不做列 / 标识符级精确定位：
-;;     GLSL 行 → 覆盖该行的顶层 form → 该 form 的源文件行。
+;;     源码第 N 行 → 覆盖该行的顶层 form → 该 form 的源文件行。
 ;;   源行用 ">" 前缀标出（不画列级 caret）。
 ;;
 ;; 报错拆成三个独立的"视角"，每个只做一件事：
-;;   ① OpenGL 行列报错   原始编译器日志
-;;   ② OpenGL 美化报错   美化后的 GLSL 源码 + 标出报错行
-;;   ③ s表达式 源文件     源文件 + 标出对应源行
+;;   ① 编译器原始日志
+;;   ② 美化后的源码 + 标出报错行
+;;   ③ s 表达式源文件 + 标出对应源行
 ;;
 ;; 全部是 数据 → lambda → 数据 的纯函数（读源文件是报错路径上唯一的 IO）。
+;; 日志 → shader-error 的**解析**是方言知识（位置格式不同），在 glsl/log.rkt 等。
 ;; ============================================================
 
 (require racket/string racket/file "program.rkt")
 
-(provide parse-shader-error-log locate-shader-error render-error
-         render-gl-linecol render-gl-pretty render-sexpr-pretty
+(provide locate-error render-error
+         render-log render-source render-sexpr
          (struct-out shader-error) (struct-out located-error))
 
 ;; ---------- 数据 ----------
 
-;; 一条解析出的编译器错误：只要行（列不用）
+;; 一条编译器错误：只要行（列不用）
 (struct shader-error (line msg) #:transparent)
 
-;; 一条定位后的错误：line/msg = GLSL 行与原始消息；form = 覆盖该行的顶层 form（#f = 无）
+;; 一条定位后的错误：line/msg = 源码行与原始消息；form = 覆盖该行的顶层 form（#f = 无）
 (struct located-error (line msg form) #:transparent)
 
-;; ---------- ① 解析 ----------
+;; ---------- 定位（行级） ----------
 
-;; 驱动数据：日志行的位置格式。Mesa：0:行(列): error: 消息
-;; 正则 group2 = 行，group3 = 列（匹配但不用）
-(define log-line-pattern #rx"([0-9]+):([0-9]+)[(]([0-9]+)[)]:")
-
-(define (parse-shader-error-log log)
-  (for/list ([ln (string-split log "\n")]
-             #:when (not (string=? ln "")))
-    (define m (regexp-match log-line-pattern ln))
-    (if m
-        (shader-error (string->number (list-ref m 2)) ln)
-        (shader-error #f ln))))
-
-;; ---------- ② 定位（行级） ----------
-
-;; GLSL 行 → 覆盖它的顶层 form。行级，足够。
-(define (locate-shader-error src err)
+;; 源码行 → 覆盖它的顶层 form。行级，足够。
+(define (locate-error src err)
   (define line (shader-error-line err))
   (define form (and line (shader-program? src) (shader-program-lookup src line)))
   (located-error line (shader-error-msg err) form))
 
-;; ---------- ③ 三个渲染器 ----------
+;; ---------- 三个渲染器 ----------
 
 ;; 取第一条满足条件的定位错误
 (define (first-located located pred)
@@ -70,21 +57,21 @@
              l))
    "\n"))
 
-;; ① OpenGL 行列报错：原始日志
-(define (render-gl-linecol log)
-  (string-append "OpenGL log:\n" log))
+;; ① 编译器原始日志
+(define (render-log log)
+  (string-append "compiler log:\n" log))
 
-;; ② OpenGL 美化报错：美化 GLSL 源码 + 标出报错行（源为空则输出空）
-(define (render-gl-pretty src located)
+;; ② 美化后的源码 + 标出报错行（源码为空则输出空）
+(define (render-source src located)
   (define e (first-located located located-error-line))
   (define body (and e (render-numbered-lines (shader-src src) (located-error-line e))))
   (if (and body (not (string=? body "")))
-      (string-append "OpenGL source:\n" body)
+      (string-append "shader source:\n" body)
       ""))
 
-;; ③ s表达式 源文件：读 .rkt 源文件，标出该 form 所在行；
+;; ③ s 表达式源文件：读 .rkt 源文件，标出该 form 所在行；
 ;;    读不到文件（如 REPL / 无源路径）才回退到格式化 datum。
-(define (render-sexpr-pretty located)
+(define (render-sexpr located)
   (define e (first-located located located-error-form))
   (if (not e)
       ""
@@ -120,13 +107,13 @@
            (string-append "(" (string-join parts (string-append "\n" (make-string (* 2 (add1 depth)) #\space))) ")"))]
       [else (format "~s" d)])))
 
-;; ---------- ④ 组合 ----------
+;; ---------- 组合 ----------
 
 ;; 三段拼起来；空段跳过
 (define (render-error log src located)
   (string-join
    (filter (lambda (s) (not (string=? s "")))
-           (list (render-gl-linecol log)
-                 (render-gl-pretty src located)
-                 (render-sexpr-pretty located)))
+           (list (render-log log)
+                 (render-source src located)
+                 (render-sexpr located)))
    "\n\n"))

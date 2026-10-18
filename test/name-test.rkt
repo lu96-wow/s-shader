@@ -14,9 +14,13 @@
 ;; ============================================================
 
 (require rackunit
+         "../shader/type.rkt"
+         "../shader/interface.rkt"
          racket/string
          racket/list
          "../glsl/rewrite.rkt"
+         "../shader/program.rkt"
+         "../shader/pretty.rkt"
          "../types.rkt")
 
 (define-syntax-rule (check-glsl raw (form ...))
@@ -148,7 +152,9 @@
 (check-eq? (var 'u-model-view) (var 'u_model_view))
 (check-eq? (var "u-model-view") (var 'u-model-view))
 (check-eq? (var 'a-pos) (var 'a_pos))
-(check-equal? (shader-type-source-name (shader-var-type (var 'u-model-view))) 'mat4)
+(check-equal? (shader-type-name (shader-var-type (var 'u-model-view))) 'mat4)
+;; 写进源码的类型/变量拼写由方言决定：看生成的 GLSL
+(check-true (string-contains? (shader-program-src shader) "mat4 u_model_view;"))
 
 ;; layout 键归一：local-size-x → local_size_x；两种写法都能查
 (check-equal? (shader-var-layout (var 'a-work)) '((local_size_x 8)))
@@ -167,7 +173,7 @@
 (check-equal? (shader-var-name v2) 'u-light)
 (check-equal? (shader-var-source-name v2) 'u_light)
 (check-equal? (shader-type-name (shader-var-type v2)) 'My-Light)
-(check-equal? (shader-type-source-name (shader-var-type v2)) 'My_Light)
+(check-true (string-contains? (shader-program-src shader2) "My_Light u_light;"))
 (check-equal? (map shader-var-source-name (shader-type-fields (shader-var-type v2)))
               '(light_pos power))
 

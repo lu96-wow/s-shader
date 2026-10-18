@@ -1,4 +1,4 @@
-# 共享词汇 · vocab/ —— GLSL 内建类型名 + 类型别名
+# 共享词汇 · `types.rkt` —— 内建类型名 + 类型别名
 
 这里放**语言层与值层都要用**的纯词汇表，不包含类型解析逻辑、不依赖 `glsl/` 或
 `value/`。
@@ -45,7 +45,7 @@ builtin-type-names               ; canonical symbols
 ## 依赖方向
 
 ```
-types.rkt  ← glsl/interface.rkt
+types.rkt  ← shader/type.rkt（模型）/ glsl/types.rkt（目录）
                            ← value/type.rkt
                            ← glsl/rewrite.rkt（for-syntax）
 ```

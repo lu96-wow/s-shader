@@ -4,7 +4,9 @@
 ;; 运行：racket test/edge-test.rkt
 ;; ============================================================
 (require rackunit racket/string
-         "../glsl/error.rkt"
+         "../shader/error.rkt"
+         "../glsl/log.rkt"
+         "../shader/program.rkt"
          "../glsl/rewrite.rkt")
 
 ;; ---------- 小工具 ----------
@@ -111,7 +113,7 @@
         (out vec4 c)
         (define (main) void (set! c (vec4 uTime)))))
 
-(define (located1 log) (locate-shader-error gp (car (parse-shader-error-log log))))
+(define (located1 log) (locate-error gp (car (parse-error-log log))))
 
 ;; 正常：GLSL 行 5 → main form
 (define le (located1 "0:5(15): error: `uTime' undeclared\n"))
@@ -121,47 +123,47 @@
 ;; 第 1 行 → version form；② 在 GLSL 第 1 行标 >
 (check-equal? (shader-form-text (located-error-form (located1 "0:1(0): error: x\n")))
               '(version 330 core))
-(check-true (regexp-match? #rx"> +1 \\|" (render-gl-pretty gp (list (located1 "0:1(0): error: x\n")))))
+(check-true (regexp-match? #rx"> +1 \\|" (render-source gp (list (located1 "0:1(0): error: x\n")))))
 
 ;; 越界 / 行 0 / 无行号 → form #f，③ 空
 (for ([log (list "0:99(1): error: boom\n" "0:0(0): error: boom\n" "note: hi\n")])
-  (define e (locate-shader-error gp (car (parse-shader-error-log log))))
+  (define e (locate-error gp (car (parse-error-log log))))
   (check-false (located-error-form e))
-  (check-equal? (render-sexpr-pretty (list e)) ""))
+  (check-equal? (render-sexpr (list e)) ""))
 
 ;; 空日志 → 没有 located
-(check-equal? (parse-shader-error-log "") '())
+(check-equal? (parse-error-log "") '())
 
 ;; 多行日志 → 只取第一条错误驱动 ②/③
-(define located-multi (map (lambda (e) (locate-shader-error gp e))
-                           (parse-shader-error-log "0:2(1): error: a\n0:4(1): error: b\n")))
+(define located-multi (map (lambda (e) (locate-error gp e))
+                           (parse-error-log "0:2(1): error: a\n0:4(1): error: b\n")))
 (check-equal? (length located-multi) 2)
-(check-true (regexp-match? #rx"> +2 \\|" (render-gl-pretty gp located-multi)))  ; 第一条（行 2）
+(check-true (regexp-match? #rx"> +2 \\|" (render-source gp located-multi)))  ; 第一条（行 2）
 
 ;; ---------- ⑥ shader-error：空程序 / 无源路径 / 裸字符串 ----------
 
-;; 空程序：② 不再输出孤零零的 "OpenGL source:" 头
+;; 空程序：② 不再输出孤零零的 "shader source:" 头
 (define pe (glsl))
-(define le-empty (locate-shader-error pe (car (parse-shader-error-log "0:1(0): error: x\n"))))
-(check-equal? (render-gl-pretty pe (list le-empty)) "")
+(define le-empty (locate-error pe (car (parse-error-log "0:1(0): error: x\n"))))
+(check-equal? (render-source pe (list le-empty)) "")
 (check-equal? (render-error "0:1(0): error: x\n" pe (list le-empty))
-              "OpenGL log:\n0:1(0): error: x\n")
+              "compiler log:\n0:1(0): error: x\n")
 
 ;; 无源路径（手工构造 src-path/src-line = #f）→ 回退到格式化 datum
 (define pe2 (make-shader-program (list (glsl-version 330 "core"))
                                (list (list #f #f '(version 330 core)))
                                '()))
-(define le2 (locate-shader-error pe2 (car (parse-shader-error-log "0:1(0): error: y\n"))))
-(check-equal? (render-sexpr-pretty (list le2))
+(define le2 (locate-error pe2 (car (parse-error-log "0:1(0): error: y\n"))))
+(check-equal? (render-sexpr (list le2))
               "s-expr source:\n(version 330 core)")
 
 ;; 裸字符串 src（非 shader-program）→ 无 form，③ 空
-(define le3 (locate-shader-error "void main(){}" (car (parse-shader-error-log "0:1(0): error: z\n"))))
+(define le3 (locate-error "void main(){}" (car (parse-error-log "0:1(0): error: z\n"))))
 (check-false (located-error-form le3))
-(check-equal? (render-sexpr-pretty (list le3)) "")
+(check-equal? (render-sexpr (list le3)) "")
 
 ;; ---------- ⑦ 端到端：render-error 三段都在 ----------
 (define full (render-error "0:5(15): error: `uTime' undeclared\n" gp (list le)))
-(check-true (regexp-match? #rx"OpenGL log:" full))
-(check-true (regexp-match? #rx"OpenGL source:" full))
+(check-true (regexp-match? #rx"compiler log:" full))
+(check-true (regexp-match? #rx"shader source:" full))
 (check-true (regexp-match? #rx"s-expr source:" full))

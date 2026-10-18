@@ -26,7 +26,7 @@
 | `u16` | `u16vector` | 无（CPU 索引数组 `u16-array`） |
 | `u8` | `u8vector`（即 `bytes`） | 无（CPU 像素数组 `u8-array`） |
 
-`type-table` 只收录**有 CPU 表示**的 GLSL 类型；完整类型目录在 `glsl/interface.rkt`。
+`type-table` 只收录**有 CPU 表示**的 GLSL 类型；完整类型目录在 `shader/type.rkt` + `glsl/types.rkt`。
 类型查询接受别名：`(shader-size 'vec-3)`、`(type-kind 'mat-4)`、`(shader-struct v (vec-3 pos))`
 都在 `types.rkt` 里先规范成 canonical（`vec3` / `mat4`）。
 

@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; ============================================================
-;; 块 1 · (glsl) 内 · glsl/rewrite.rkt —— 表面语法 → GLSL（完全编译期变换）
+;; GLSL 方言 · glsl/rewrite.rkt —— 表面语法 → GLSL（完全编译期变换）
 ;;
 ;; 设计：`(glsl ...)` 是一个**纯编译期**变换。
 ;;   surface datum（(vec2 1.0 2.0)、(set! x v)、(in vec2 aPos)...）
@@ -24,21 +24,27 @@
                      racket/syntax
                      "core.rkt"
                      "names.rkt"
+                     "types.rkt"
                      "../types.rkt"
-                     "interface.rkt"
-                     "program.rkt")
+                     "../shader/type.rkt"
+                     "../shader/interface.rkt"
+                     "../shader/program.rkt")
          "core.rkt"
-         "pretty.rkt"
          "names.rkt"
-         "interface.rkt"
-         "program.rkt")
+         "types.rkt"
+         "../shader/type.rkt"
+         "../shader/interface.rkt"
+         "../shader/pretty.rkt"
+         "../shader/program.rkt"
+         "../shader/error.rkt")
 
+;; 只导出方言自己的东西：core 的 type/interface/program/pretty/error 由
+;; shader 集合（core 语言）提供，避免在 #lang shader/glsl 里重复导出。
 (provide glsl glsl-fragment glsl-splice glsl-shader
+         builtin-type-of
          (all-from-out "core.rkt")
-         (all-from-out "pretty.rkt")
          (all-from-out "names.rkt")
-         (all-from-out "interface.rkt")
-         (all-from-out "program.rkt"))
+         (all-from-out "types.rkt"))
 
 (begin-for-syntax
 
@@ -397,7 +403,7 @@
     (glsl-field-decl (rw-type (car f)) (glsl-name (cadr f))))
 
   (define (rw-struct args)
-    (apply shader-struct-decl (glsl-name (car args)) (map rw-field (cdr args))))
+    (apply glsl-struct-decl (glsl-name (car args)) (map rw-field (cdr args))))
 
   ;; ---------- 预处理指令 ----------
   ;; 预处理指令是语法无关的（编译前按行处理），所以顶层 / 语句位置都允许。
@@ -520,7 +526,8 @@
             (values (map string->symbol qs) rest* (map layout-item->iface items)))
           (let-values ([(qs rest) (collect-quals f)])
             (values (map string->symbol qs) rest '()))))
-    (shader-var (cadr after) (surface->shader-type (car after) struct-defs memo) quals layout '() #f))
+    (shader-var (cadr after) (glsl-name-symbol (cadr after))
+                (surface->shader-type (car after) struct-defs memo) quals layout '() #f))
 
   ;; 顶层声明 form → shader-var（不是声明、或没有变量名 → #f）
   (define (decl->shader-var d struct-defs memo)
@@ -535,7 +542,8 @@
            (values (map string->symbol qs) rest '()))]
         [else (values '() '() '())]))
     (and (pair? after) (pair? (cdr after)) (symbol? (cadr after))
-         (shader-var (cadr after) (surface->shader-type (car after) struct-defs memo) quals layout '() #f)))
+         (shader-var (cadr after) (glsl-name-symbol (cadr after))
+                (surface->shader-type (car after) struct-defs memo) quals layout '() #f)))
 
   ;; 全部顶层声明 → 接口 datum
   (define (interface-datum datas)

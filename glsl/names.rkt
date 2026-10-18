@@ -1,9 +1,10 @@
 #lang racket/base
 
-(require racket/list racket/string)
+(require racket/list racket/string
+         "../shader/ident.rkt")
 
 ;; ============================================================
-;; 块 1 · (glsl) 内 · glsl/names.rkt —— 表面标识符 → GLSL 标识符（便携层）
+;; GLSL 方言 · glsl/names.rkt —— 表面标识符 → GLSL 标识符（便携层）
 ;;
 ;; 这是**唯一**做「Racket 风格名字 ↔ GLSL 名字」转换的地方。
 ;; 逻辑上按命名空间拆成四张独立的表：
@@ -42,76 +43,14 @@
  glsl-layout-key-names glsl-layout-key-aliases)
 
 ;; ============================================================
-;; 公共小工具
+;; 方言表 + 引擎
+;;
+;; 引擎（camel→kebab、别名表构造、用户标识符 '-'→'_'、查表）在 core 的
+;; shader/ident.rkt —— 它不认识任何具体的 GLSL 名字。
+;; 本模块只提供**四张 GLSL 表**和按命名空间分派的入口函数。
 ;; ============================================================
 
-(define (as-string who x)
-  (cond
-    [(symbol? x) (symbol->string x)]
-    [(string? x) x]
-    [else (error who "需要 symbol 或 string，实际 ~s" x)]))
-
-;; camelCase / 下划线名 → kebab-case
-;;   gl_Position → gl-position
-;;   gl_VertexID → gl-vertex-id
-;;   dFdx        → d-fdx
-;;   findLSB     → find-lsb
-(define (camel->kebab str)
-  (define n (string-length str))
-  (define out (open-output-string))
-  (for ([ch (in-string str)] [i (in-naturals)])
-    (cond
-      [(char=? ch #\_) (write-char #\- out)]
-      [(and (char-upper-case? ch)
-            (> i 0)
-            (let ([prev (string-ref str (sub1 i))])
-              (or (char-lower-case? prev)
-                  (char-numeric? prev)
-                  (and (char-upper-case? prev)
-                       (< (add1 i) n)
-                       (char-lower-case? (string-ref str (add1 i)))))))
-       (write-char #\- out)
-       (write-char (char-downcase ch) out)]
-      [else (write-char (char-downcase ch) out)]))
-  (get-output-string out))
-
-;; 一个 canonical 名的候选别名（kebab + 全小写下划线；去掉与 canonical 相同的）
-(define (camel-alias-symbols name)
-  (define s (symbol->string name))
-  (define kebab (camel->kebab s))
-  (define snake (string-replace kebab "-" "_"))
-  (define forms (if (string=? kebab snake) (list kebab) (list kebab snake)))
-  (for/list ([f (in-list forms)] #:unless (string=? f s))
-    (string->symbol f)))
-
-;; 从「canonical 名清单」生成 alias-symbol → canonical-string 的 hash
-(define (make-camel-alias-table who names)
-  (for*/fold ([h (hash)]) ([n (in-list names)]
-                           [a (in-list (camel-alias-symbols n))])
-    (when (hash-has-key? h a)
-      (error who "别名冲突：~a → ~a" a n))
-    (hash-set h a (symbol->string n))))
-
-(define (hash->sorted-pairs h)
-  (sort (for/list ([(k v) (in-hash h)]) (cons k (string->symbol v)))
-        (lambda (a b) (string<? (symbol->string (car a)) (symbol->string (car b))))))
-
-;; 通用用户标识符：只做 '-'→'_'，再校验
-(define (user-identifier-name who x)
-  (define s (as-string who x))
-  (define mapped (string-replace s "-" "_"))
-  (unless (glsl-identifier? mapped)
-    (error who "非法 GLSL 标识符：~a → ~a（只允许字母/数字/下划线；连字符会转成 _）"
-           s mapped))
-  mapped)
-
-;; GLSL 标识符：ASCII 字母/下划线开头，后续字母/数字/下划线
-(define (glsl-identifier? x)
-  (and (regexp-match? #rx"^[A-Za-z_][A-Za-z0-9_]*$" (as-string 'glsl-identifier? x)) #t))
-
-;; 查别名表；不命中返回 #f
-(define (alias-ref table who x)
-  (hash-ref table (string->symbol (as-string who x)) #f))
+(define glsl-identifier? identifier?)
 
 ;; ============================================================
 ;; 表 1 · 内建变量（变量/常量/内建块名；不含函数、类型）

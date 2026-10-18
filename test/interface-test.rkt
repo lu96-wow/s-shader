@@ -4,8 +4,10 @@
 ;; 运行：racket test/shader-interface-test.rkt
 ;; ============================================================
 (require rackunit racket/list
-         "../glsl/interface.rkt"
-         "../glsl/rewrite.rkt")
+         "../shader/type.rkt"
+         "../shader/interface.rkt"
+         "../glsl/rewrite.rkt"
+         "../shader/program.rkt")
 
 ;; ---------- ① 类型模型：内建类型 ----------
 (define (bt s) (builtin-type-of s))
@@ -55,8 +57,8 @@
 (check-equal? (shader-type-len arr) 4)
 (check-equal? (shader-type-size arr) 48)                  ; 4 × 12
 
-(define st (shader-struct-type 'Light (list (shader-var 'pos (bt 'vec3) '() '() '() #f)
-                                             (shader-var 'i (bt 'float) '() '() '() #f))))
+(define st (shader-struct-type 'Light (list (shader-var 'pos 'pos (bt 'vec3) '() '() '() #f)
+                                             (shader-var 'i 'i (bt 'float) '() '() '() #f))))
 (check-equal? (shader-type-kind st) 'struct)
 (check-equal? (shader-type-size st) 16)                   ; 12 + 4
 (check-equal? (map shader-var-name (shader-type-fields st)) '(pos i))

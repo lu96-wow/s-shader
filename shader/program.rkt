@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; ============================================================
-;; 块 1 · (glsl) 内 · glsl/program.rkt —— (glsl ...) 的产物：带源映射的 GLSL 程序
+;; core · shader/program.rkt —— 着色程序的产物：文本 + 行级源映射 + 接口反射
 ;;
 ;;   shader-program(src forms)：
 ;;     src   = 美化后的 GLSL（可直接编译）

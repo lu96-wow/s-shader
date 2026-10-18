@@ -4,12 +4,14 @@
 ;; 运行：racket test/shader-error-test.rkt
 ;; ============================================================
 (require rackunit racket/string
-         "../glsl/error.rkt"
+         "../shader/error.rkt"
+         "../glsl/log.rkt"
+         "../shader/program.rkt"
          "../glsl/rewrite.rkt")
 
 ;; 定位辅助：log → located-error
 (define (loc log prog)
-  (locate-shader-error prog (car (parse-shader-error-log log))))
+  (locate-error prog (car (parse-error-log log))))
 
 (define prog
   (glsl (version 330 core)
@@ -26,12 +28,12 @@
               '(define (main) void (set! c (vec4 uTime))))
 
 ;; ---------- ② 美化 GLSL：标出报错行 ----------
-(define g (render-gl-pretty prog (list le)))
-(check-true (regexp-match? #rx"OpenGL source:" g))
+(define g (render-source prog (list le)))
+(check-true (regexp-match? #rx"shader source:" g))
 (check-true (regexp-match? #rx"> +5 \\|" g))                 ; 第 5 行前有 >
 
 ;; ---------- ③ 源文件：标出该 form 的源行 ----------
-(define s (render-sexpr-pretty (list le)))
+(define s (render-sexpr (list le)))
 (check-true (regexp-match? #rx"s-expr source:" s))
 (check-true (regexp-match?
              (regexp (format "> +~a \\|" (shader-form-src-line (located-error-form le))))
@@ -40,7 +42,7 @@
 ;; ---------- 行号越界 → form=#f，③ 空（不崩）----------
 (define le2 (loc "0:99(1): error: boom\n" prog))
 (check-false (located-error-form le2))
-(check-equal? (render-sexpr-pretty (list le2)) "")
+(check-equal? (render-sexpr (list le2)) "")
 
 ;; ---------- 无行号的日志行 → line/form 都 #f ----------
 (define le3 (loc "note: something happened\n" prog))
@@ -49,8 +51,8 @@
 
 ;; ---------- render-error 三段拼装 ----------
 (define r (render-error "0:5(21): error: `uTime' undeclared\n" prog (list le)))
-(check-true (regexp-match? #rx"OpenGL log:" r))
-(check-true (regexp-match? #rx"OpenGL source:" r))
+(check-true (regexp-match? #rx"compiler log:" r))
+(check-true (regexp-match? #rx"shader source:" r))
 (check-true (regexp-match? #rx"s-expr source:" r))
 
 ;; ---------- 第一个 form 的行也对 ----------

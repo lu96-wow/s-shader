@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; ============================================================
-;; 块 1 · (glsl) 内 · glsl/pretty.rkt —— GLSL 美化器（字符串 → 多行缩进文本）
+;; core · shader/pretty.rkt —— 文本美化器（字符串 → 多行缩进文本，两个方言共用）
 ;;
 ;; 纯函数：数据 → 数据，无副作用（不可变状态 + 递归，无 set!/box）。
 ;; 规则：按 ; { } 换行，按 {} 深度缩进 2 格；保留字符串内容与已有 \n。
@@ -12,7 +12,7 @@
 ;;   —— 这是源映射的基础：shader-program.rkt 靠它算出每个顶层 form 的行区间。
 ;; ============================================================
 
-(require racket/string "core.rkt")   ; string-join / ident-char?
+(require racket/string "emit-util.rkt")   ; string-join / ident-char?
 
 (provide shader-pretty)
 

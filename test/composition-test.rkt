@@ -7,8 +7,12 @@
 ;; ============================================================
 
 (require rackunit
+         "../shader/type.rkt"
+         "../shader/interface.rkt"
          racket/string
-         "../glsl/rewrite.rkt")
+         "../glsl/rewrite.rkt"
+         "../shader/program.rkt"
+         "../shader/pretty.rkt")
 
 ;; ---------- 片段定义（定义处）----------
 (glsl-fragment base
