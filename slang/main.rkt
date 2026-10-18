@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; ============================================================
-;; slang/main.rkt —— #lang shader/slang 的模块语言（Slang 方言）
+;; slang/main.rkt —— #lang slang 的模块语言（Slang 方言）
 ;;
 ;; 在 core（collection: shader）之上叠加 Slang 方言：
 ;;

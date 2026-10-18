@@ -1,7 +1,7 @@
 #lang racket/base
 
 (require racket/list racket/string
-         "../shader/ident.rkt")
+         shader/ident)
 
 ;; ============================================================
 ;; GLSL 方言 · glsl/names.rkt —— 表面标识符 → GLSL 标识符（便携层）

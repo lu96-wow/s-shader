@@ -1,4 +1,4 @@
-# Part 1 · glsl/ —— `(glsl)` 命名空间内：GLSL 语言（特殊、隔离）
+# GLSL 方言 · glsl/ —— `#lang glsl`（collection: glsl）
 
 这里**只有 GLSL 语言本身的实现**，不掺值层、不掺 OpenGL。
 `(glsl ...)` 是**完全编译期变换**：展开期就把 shader 变成 `shader-program` 常量，运行期只重建；
@@ -13,14 +13,14 @@
 | GLSL 字符串原语（layout / #version / 预处理） | `core.rkt` | 方言 |
 | 表面语法 → GLSL（`(glsl)` 宏，编译期变换） | `rewrite.rkt` | 方言 |
 | 日志解析（Mesa 位置格式） | `log.rkt` | 方言 |
-| 类型名词汇表（canonical 名 + 别名） | `../types.rkt` | core |
-| 标识符别名**引擎**（camel→kebab / 表构造 / `-`→`_`） | `../shader/ident.rkt` | core |
-| 类型 / 声明模型、接口反射 | `../shader/type.rkt`、`../shader/interface.rkt` | core |
-| 美化 / 产物 + 源映射 / 报错定位渲染 / 拼装工具 | `../shader/pretty.rkt`、`program.rkt`、`error.rkt`、`emit-util.rkt` | core |
+| 类型名词汇表（canonical 名 + 别名） |  `shader/types.rkt` | core |
+| 标识符别名**引擎**（camel→kebab / 表构造 / `-`→`_`） | `shader/ident.rkt` | core |
+| 类型 / 声明模型、接口反射 | `shader/type.rkt`、`shader/interface.rkt` | core |
+| 美化 / 产物 + 源映射 / 报错定位渲染 / 拼装工具 | `shader/pretty.rkt`、`shader/program.rkt`、`shader/error.rkt`、`shader/emit-util.rkt` | core |
 
 规则：
 
-- 方言**不 require** core 之外的东西（不 require `value/rename-*.rkt`、不 require `opengl/rename.rkt`）。
+- 方言**不 require** core 之外的东西（不 require `shader/value/rename-*.rkt`、不 require `opengl/rename.rkt`）。
 - 方言**不 require 另一个方言**；core **不 require** 任何方言。
 - 「表面名 → 源码里的标识符」在构造 `shader-var` 时算好，存进 `source-name`，core 不需要转换函数。
 
@@ -48,7 +48,7 @@
 - `glsl-qualifier-name` / `glsl-qualifier?`：限定符
 - `glsl-layout-key-name` / `glsl-layout-key-symbol`：layout 键
 - 各表的 `*-names` / `*-aliases` 查询入口
-- 类型别名在 `../types.rkt`：`type-canonical-name/symbol`、
+- 类型别名在 `shader/types`：`type-canonical-name/symbol`、
   `type-alias-forms`、`builtin-type?`
 
 **边界**：

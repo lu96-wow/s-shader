@@ -25,21 +25,21 @@
                      "core.rkt"
                      "names.rkt"
                      "types.rkt"
-                     "../types.rkt"
-                     "../shader/type.rkt"
-                     "../shader/interface.rkt"
-                     "../shader/program.rkt")
+                     shader/types
+                     shader/type
+                     shader/interface
+                     shader/program)
          "core.rkt"
          "names.rkt"
          "types.rkt"
-         "../shader/type.rkt"
-         "../shader/interface.rkt"
-         "../shader/pretty.rkt"
-         "../shader/program.rkt"
-         "../shader/error.rkt")
+         shader/type
+         shader/interface
+         shader/pretty
+         shader/program
+         shader/error)
 
 ;; 只导出方言自己的东西：core 的 type/interface/program/pretty/error 由
-;; shader 集合（core 语言）提供，避免在 #lang shader/glsl 里重复导出。
+;; shader 集合（core 语言）提供，避免在 #lang glsl 里重复导出。
 (provide glsl fragment splice shader
          builtin-type-of
          (all-from-out "core.rkt")

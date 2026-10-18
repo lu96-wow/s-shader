@@ -12,9 +12,9 @@
 ;; ============================================================
 
 (require rackunit
-         "../glsl/rewrite.rkt"
-         "../shader/program.rkt"
-         "../shader/pretty.rkt")
+         glsl/rewrite
+         shader/program
+         shader/pretty)
 
 (define-syntax-rule (check-glsl raw (form ...))
   (check-equal? (shader-program-src (glsl form ...))

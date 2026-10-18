@@ -2,15 +2,15 @@
 ;; 运行：racket test/vec-math-test.rkt
 (require rackunit
          ffi/vector
-         "../value/rename-type.rkt"
-         "../value/rename-access.rkt"
-         "../value/rename-construct.rkt"
-         "../value/rename-layout.rkt"
-         "../value/rename-buffer.rkt"
-         "../value/convert.rkt"
-         "../value/rename-vec.rkt"
-         "../value/rename-matrix.rkt"
-         "../value/convert.rkt")
+         shader/value/rename-type
+         shader/value/rename-access
+         shader/value/rename-construct
+         shader/value/rename-layout
+         shader/value/rename-buffer
+         shader/value/convert
+         shader/value/rename-vec
+         shader/value/rename-matrix
+         shader/value/convert)
 
 (define (lf v) (map (lambda (x) (inexact->exact (round (* x 1e6)))) (f32vector->list v)))
 (define (ld v) (f64vector->list v))

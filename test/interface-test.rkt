@@ -4,10 +4,10 @@
 ;; 运行：racket test/shader-interface-test.rkt
 ;; ============================================================
 (require rackunit racket/list
-         "../shader/type.rkt"
-         "../shader/interface.rkt"
-         "../glsl/rewrite.rkt"
-         "../shader/program.rkt")
+         shader/type
+         shader/interface
+         glsl/rewrite
+         shader/program)
 
 ;; ---------- ① 类型模型：内建类型 ----------
 (define (bt s) (builtin-type-of s))

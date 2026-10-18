@@ -14,14 +14,14 @@
 ;; ============================================================
 
 (require rackunit
-         "../shader/type.rkt"
-         "../shader/interface.rkt"
+         shader/type
+         shader/interface
          racket/string
          racket/list
-         "../glsl/rewrite.rkt"
-         "../shader/program.rkt"
-         "../shader/pretty.rkt"
-         "../types.rkt")
+         glsl/rewrite
+         shader/program
+         shader/pretty
+         shader/types)
 
 (define-syntax-rule (check-glsl raw (form ...))
   (check-equal? (shader-program-src (glsl form ...))

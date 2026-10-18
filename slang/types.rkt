@@ -16,8 +16,8 @@
 ;; ============================================================
 
 (require racket/list racket/string
-         "../types.rkt"
-         "../shader/type.rkt")
+         shader/types
+         shader/type)
 
 (provide slang-type-of slang-type-spelling
          slang-vector-spelling slang-matrix-spelling)

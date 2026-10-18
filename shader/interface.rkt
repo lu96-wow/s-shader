@@ -17,7 +17,7 @@
 ;; ============================================================
 
 (require racket/list racket/match
-         "../types.rkt"
+         "types.rkt"
          "type.rkt")
 
 (provide
@@ -32,7 +32,7 @@
  shader-var->datum datum->shader-var
  shader-interface->datum datum->shader-interface
  ;; ---- 类型名词汇表（canonical 名 + 别名，与 CPU 值层共享）----
- (all-from-out "../types.rkt"))
+ (all-from-out "types.rkt"))
 
 ;; 一段 shader 源码声明的全部接口变量（按源码出现顺序）
 (struct shader-interface (vars) #:transparent)

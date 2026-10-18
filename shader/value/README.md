@@ -41,8 +41,8 @@ rename-*.rkt → 只 require 对应实现
 
 ## 命名
 
-- 实现用 Racket 传统名（`vec-add`、`matrix-ref`、`vec-buffer`）——**不随 `#lang shader/glsl` 导出**。
-- rename 用 GLSL 名（`vadd`、`mat4-ref`、`vec-array`）——随 `#lang shader/glsl` 导出。
+- 实现用 Racket 传统名（`vec-add`、`matrix-ref`、`vec-buffer`）——**不随 `#lang glsl` 导出**。
+- rename 用 GLSL 名（`vadd`、`mat4-ref`、`vec-array`）——随 `#lang glsl` 导出。
 - 取内部存储（零拷贝）用 `X-data`；真正类型转换用 `->type`。
 - `shader-struct` 的字段名是 Racket 符号，可直接用连字符（`model-pos`）；
   字段类型也可用别名（`vec-3`），编译期会规范成 canonical 存进 `<Name>-fields`。

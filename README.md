@@ -3,13 +3,13 @@
 在 Racket 里**写着色器文本、造/算着色器值、反射 shader 接口、渲染编译报错**。
 本包**不依赖、也不含 OpenGL / Vulkan**。
 
-三个语言入口（collection `shader` 的三个子集合）：
+三个集合：
 
-| 语言 | 内容 |
+| 集合 | 内容 |
 |---|---|
-| `#lang shader` | core：CPU 值层 + 类型/声明模型 + 接口反射 + 产物/美化/报错（方言无关） |
-| `#lang shader/glsl` | core + `(glsl ...)` 宏（GLSL 方言） |
-| `#lang shader/slang` | core + `(slang ...)` 宏（Slang 方言，声明侧骨架） |
+| `shader` | core：CPU 值层 + 类型/声明模型 + 接口反射 + 产物/美化/报错（方言无关）；`(require shader)` |
+| `glsl` | `#lang glsl` + `(glsl ...)` 宏（GLSL 方言） |
+| `slang` | `#lang slang` + `(slang ...)` 宏（Slang 方言，声明侧骨架） |
 
 - GL 对象/状态/窗口，以及 shader 的编译/链接，属于另一个独立包 `racket-glsl-opengl`
   （`#lang glsl-opengl`），它单向依赖本包。
@@ -24,14 +24,14 @@ raco pkg install --link .
 
 依赖 `base`（测试另需 `rackunit-lib`）。每个方言两种用法：
 
-- **`#lang shader/glsl`** / **`#lang shader/slang`** —— 普通 Racket 模块，预置 core + 该方言。
-- **`(require shader/glsl)`** / `(require shader/slang)` —— 在 `#lang racket/base` 里使用，等价。
+- **`#lang glsl`** / **`#lang slang`** —— 普通 Racket 模块，预置 core + 该方言。
+- **`(require glsl)`** / `(require slang)` —— 在 `#lang racket/base` 里使用，等价。
 - **`#lang shader`** —— 只要 core（值层 + 模型 + 产物 + 报错），不要任何方言宏。
 
 ## 快速开始
 
 ```racket
-#lang shader/glsl
+#lang glsl
 
 (define vert
   (glsl (version 330 core)
@@ -390,45 +390,36 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
 ## 分层与文件
 
 ```
-（仓库根 = 包根，collection: shader）
-  main.rkt                  #lang shader：core（值层 + 类型模型 + 产物 + 报错）
-  lang/reader.rkt
-  types.rkt                 类型名词汇表（canonical 名 + 别名；语言层与值层共享）
-  shader/                   ── core：方言无关 ──────────────────────
-    ident.rkt               标识符别名引擎（表由方言传入）
-    type.rkt                类型 / 声明模型（shader-type / shader-var）
-    interface.rkt           接口反射 + datum 往返
-    program.rkt             产物 + 行级源映射
-    pretty.rkt              文本美化
-    emit-util.rkt           字符串拼装小工具
-    error.rkt               报错定位 / 渲染
-  slang/                    ── Slang 方言（#lang shader/slang，step 3d 骨架）──
+（仓库根 = 多集合包：shader / glsl / slang）
+  info.rkt                   (define collection 'multi)
+  shader/                    ── core：方言无关（(require shader)）──
+    main.rkt                 一次 require 全部
+    types.rkt                类型名词汇表（canonical 名 + 别名）
+    type.rkt                 类型 / 声明模型（shader-type / shader-var）
+    interface.rkt            接口反射 + datum 往返
+    program.rkt  pretty.rkt  产物 + 行级源映射 / 文本美化
+    emit-util.rkt            字符串拼装小工具
+    error.rkt                报错定位 / 渲染
+    ident.rkt                标识符别名引擎（表由方言传入）
+    value/                   CPU 值层（type/access/construct/layout/buffer/vec/matrix + rename 成对）
+  glsl/                      ── GLSL 方言（#lang glsl）──
     main.rkt  lang/reader.rkt
-    types.rkt               类型目录：float3 / float4x4 ↔ canonical vec3 / mat4
-    names.rkt               语义 / 修饰符 / 属性表（SV-Position → SV_Position …）
-    core.rkt                字符串原语（[[vk::…]] / cbuffer / 语义注解）
-    rewrite.rkt             (slang ...) 宏：目前只实现声明侧
-  glsl/                     ── GLSL 方言（#lang shader/glsl）────────
+    types.rkt                类型目录（vec3 / mat4 / sampler2D）
+    names.rkt                标识符别名表（变量/函数/关键字，四张表分开）
+    core.rkt                 字符串原语（layout / #version / 预处理 …）
+    rewrite.rkt              (glsl ...) 宏 + fragment/splice/shader
+    log.rkt                  驱动日志 → shader-error
+  slang/                     ── Slang 方言（#lang slang，声明侧骨架）──
     main.rkt  lang/reader.rkt
-    types.rkt               类型目录：拼写 → shader-type
-    names.rkt               标识符别名表（变量/函数/关键字，四张表分开）
-    core.rkt                字符串原语（layout / #version / 预处理 …）
-    rewrite.rkt             (glsl ...) 宏：表面语法 → 原语
-    log.rkt                 驱动日志 → shader-error
-  value/                    ── CPU 值层（两方言共用）─────────────
-    type.rkt / rename-type.rkt           类型与存储
-    access.rkt / rename-access.rkt       取用
-    construct.rkt / rename-construct.rkt 构造
-    layout.rkt / rename-layout.rkt       交错布局 / shader-struct
-    buffer.rkt / rename-buffer.rkt       缓冲 / 向量数组 / u8,u16 数组
-    vec.rkt / rename-vec.rkt             向量运算
-    matrix.rkt / rename-matrix.rkt       矩阵运算
-    convert.rkt                          精度转换
-    cvector.rkt                          内部底座（无 rename）
-  test/                     测试（无需显示器）
+    types.rkt                float3 / float4x4 ↔ canonical vec3 / mat4
+    names.rkt                语义 / 修饰符 / 属性表
+    core.rkt                 [[vk::…]] / cbuffer / 语义注解 / 特化常量
+    rewrite.rkt              (slang ...) 宏
+  test/                      测试（无需显示器）
+```
 ```
 
-细节见 [DESIGN.md](DESIGN.md)；值层内部见 [value/README.md](value/README.md)；
+细节见 [DESIGN.md](DESIGN.md)；值层内部见 [shader/value/README.md](shader/value/README.md)；
 语言层见 [glsl/README.md](glsl/README.md)；共享类型词汇见 [types.md](types.md)。
 
 ## 测试
@@ -439,7 +430,7 @@ raco test test          # 无需显示器
 
 覆盖：表面语法重写、标识符便携层（变量/函数/关键字/类型别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、
 向量与矩阵运算、u8/u16 标量数组、控制流（含语句 `if` / `if-ternary` / `mul`）、**片段组合（fragment/splice）**、
-`#lang shader/glsl` 顶层入口、**Slang 声明侧**（语义注解 / cbuffer / 特化常量 / 参数化类型）。
+`#lang glsl` 顶层入口、**Slang 声明侧**（语义注解 / cbuffer / 特化常量 / 参数化类型）。
 
 ## License
 

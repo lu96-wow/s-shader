@@ -2,12 +2,12 @@
 ;; 运行：racket test/rename-vector-test.rkt
 (require rackunit
          ffi/vector
-         "../value/rename-type.rkt"
-         "../value/rename-access.rkt"
-         "../value/rename-construct.rkt"
-         "../value/rename-layout.rkt"
-         "../value/rename-buffer.rkt"
-         "../value/convert.rkt")
+         shader/value/rename-type
+         shader/value/rename-access
+         shader/value/rename-construct
+         shader/value/rename-layout
+         shader/value/rename-buffer
+         shader/value/convert)
 
 ;; ffi vector 的 equal? 不比较内容，统一用 ->list 比
 (define (lv v) (f32vector->list v))

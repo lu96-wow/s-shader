@@ -14,8 +14,8 @@
 ;; ============================================================
 
 (require racket/list racket/string
-         "../types.rkt"
-         "../shader/type.rkt")
+         shader/types
+         shader/type)
 
 (provide builtin-type-of base-of-prefix
          parse-vector parse-matrix sampler-base image-base)

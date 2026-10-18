@@ -4,10 +4,10 @@
 ;; 运行：racket test/shader-error-test.rkt
 ;; ============================================================
 (require rackunit racket/string
-         "../shader/error.rkt"
-         "../glsl/log.rkt"
-         "../shader/program.rkt"
-         "../glsl/rewrite.rkt")
+         shader/error
+         glsl/log
+         shader/program
+         glsl/rewrite)
 
 ;; 定位辅助：log → located-error
 (define (loc log prog)

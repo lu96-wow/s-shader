@@ -1,7 +1,7 @@
 #lang racket/base
 
 ;; ============================================================
-;; glsl/main.rkt —— #lang shader/glsl 的模块语言（GLSL 方言）
+;; glsl/main.rkt —— #lang glsl 的模块语言（GLSL 方言）
 ;;
 ;; 在 core（collection: shader）之上叠加 GLSL 方言：
 ;;
@@ -12,12 +12,12 @@
 ;;   glsl/log.rkt                   驱动日志 → shader-error
 ;;
 ;; 本方言不依赖、也不导出任何 OpenGL 绑定（gl-*）或编译/链接胶水。
-;; 需要那些请用 #lang shader/glsl-opengl（它 require 本语言再叠加 OpenGL 层）。
+;; 需要那些请用 #lang glsl-opengl（它 require 本语言再叠加 OpenGL 层）。
 ;;
 ;; 值层的 Racket 风格实现（vadd / matrix-ref / …）不在这里导出；
 ;; 需要时直接 require 对应 value/<逻辑>.rkt。
 ;;
-;; reader 层见 glsl/lang/reader.rkt（#lang s-exp syntax/module-reader shader/glsl/main）。
+;; reader 层见 glsl/lang/reader.rkt（#lang s-exp syntax/module-reader glsl/main）。
 ;; ============================================================
 
 (require shader

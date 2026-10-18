@@ -8,12 +8,12 @@
 | 语义 / 修饰符 / 属性表（`SV-Position`→`SV_Position`、`vk-binding`→`vk::binding`） | `names.rkt` | 方言 |
 | 字符串原语（`[[vk::…]]` / `cbuffer` / 语义注解 / 特化常量） | `core.rkt` | 方言 |
 | 表面语法 → Slang（`(slang)` 宏，编译期变换） | `rewrite.rkt` | 方言 |
-| 类型名词汇表、标识符引擎、模型/反射、美化、产物、报错 | `../types.rkt`、`../shader/*` | core |
+| 类型名词汇表、标识符引擎、模型/反射、美化、产物、报错 | `shader/types`、`shader/*` | core |
 
 ## 当前能力（声明侧）
 
 ```racket
-#lang shader/slang
+#lang slang
 
 (slang
   ;; 结构体字段带注解：语义（后缀）、修饰符（前缀）
@@ -83,8 +83,9 @@ struct vs_out {
 
 ## 与 GLSL 方言的模块边界
 
-- 两个方言**互不 require**；都只 require core。
-- `fragment` / `splice` / `shader` 目前在 GLSL 方言里，因此 `#lang shader` 只给 core，
-  不给两个方言（否则同一模块里会重复导出同名宏）。若将来要「一个模块两个方言都能用」，
-  应把 `fragment`/`splice` 上提到 core（chunk 本就是纯表面数据），`shader`/`glsl`/`slang`
+- 三个集合：`shader`（core）、`glsl`、`slang`。
+- 两个方言**互不 require**；都只 require `shader`。
+- 语言入口就是 `#lang glsl` / `#lang slang`（各自一个集合，无需前缀）。
+- `fragment` / `splice` / `shader` 目前在 GLSL 方言里。若将来要「一个模块里两个方言都能用」，
+  应把 `fragment`/`splice` 上提到 core（chunk 本就是纯表面数据），`glsl`/`slang`/`shader`
   各留在方言里。

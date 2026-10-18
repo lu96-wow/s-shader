@@ -20,7 +20,7 @@
 ;; ============================================================
 
 (require racket/format racket/string
-         "../shader/emit-util.rkt")
+         shader/emit-util)
 
 (provide
  ;; 拼装

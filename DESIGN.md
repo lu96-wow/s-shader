@@ -1,7 +1,7 @@
 # racket-glsl · 设计与逻辑分层
 
 本包 = **Part 1（GLSL 语言）+ Part 2（CPU 值层）+ 报错层**。包边界即依赖边界：
-**不依赖 `opengl`**，所以 `#lang shader/glsl` / `(require shader/glsl)` 永远不会拉进 OpenGL。
+**不依赖 `opengl`**，所以 `#lang glsl` / `(require glsl)` 永远不会拉进 OpenGL。
 
 （OpenGL 侧在独立包 `racket-glsl-opengl` 中，不属于本仓库。）
 
@@ -41,7 +41,7 @@
 
 | 逻辑 | 文件 | 约束 |
 |---|---|---|
-| （core）类型名词汇表 | `types.rkt` | canonical 类型名 + 类型别名；语言层与值层共享 |
+| （core）类型名词汇表 | `shader/types.rkt` | canonical 类型名 + 类型别名；语言层与值层共享 |
 | （core）标识符别名引擎 | `shader/ident.rkt` | camel→kebab、别名表构造、`-`→`_`；**表由方言传入** |
 | （core）类型 / 声明模型 | `shader/type.rkt` | `shader-type` / `shader-var`；只读、不组合 |
 | （core）接口反射 | `shader/interface.rkt` | 按名字/限定符/kind 查询 + datum 往返 |
@@ -61,10 +61,9 @@
 **core / 方言的边界**（唯一允许的依赖方向）：
 
 ```
-types.rkt  value/          ← 两方言共用（CPU 值层与类型名词汇）
-shader/                    ← core：模型、反射、产物、美化、报错
-glsl/  slang/              ← 方言：类型目录 + 标识符表 + 原语 + 表面语法 + 日志解析
-                             （互不 require；#lang shader = 只要 core）
+shader/（types.rkt + value/ + 模型/反射/产物/美化/报错）  ← core：两方言共用
+glsl/  slang/                                    ← 方言：类型目录 + 标识符表 + 原语 + 表面语法 + 日志解析
+                             （互不 require；core 单独用 `(require shader)`）
 ```
 
 方言**不得** require 另一个方言；core **不得** require 任何方言。
@@ -88,7 +87,7 @@ core 因此不需要任何转换函数。
 | 内建函数 | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | `texture-size` / `texture_size` → `textureSize`；`d-fdx` → `dFdx` |
 | 关键字（qualifier） | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | `read-only` → `readonly`；`no-perspective` → `noperspective`；`in-out` → `inout` |
 | 关键字（layout key） | `glsl/names.rkt`（机制在 `shader/ident.rkt`） | `early-fragment-tests` → `early_fragment_tests`；`local-size-x` → `local_size_x` |
-| 内建类型 | `types.rkt` | `vec-3` / `vec_3` → `vec3`；`sampler-2d` → `sampler2D`；`mat-3x2` → `mat3x2` |
+| 内建类型 | `shader/types.rkt` | `vec-3` / `vec_3` → `vec3`；`sampler-2d` → `sampler2D`；`mat-3x2` → `mat3x2` |
 
 - **表互不串用**：变量名不会命中函数别名，函数名不会命中变量别名；关键字只用于
   qualifier/layout key；类型名只用于类型位置。
@@ -142,10 +141,10 @@ core 因此不需要任何转换函数。
 **依赖方向**：`cvector.rkt ← 所有值层模块`；`buffer.rkt ← access.rkt, convert.rkt`；
 `access.rkt ← matrix.rkt`；`rename-*.rkt → 只依赖对应实现`。
 
-值层 Racket 风格名（`vec-add` / `matrix-ref` …）**不随 `#lang shader/glsl` 导出**；需要时直接
-`(require glsl/value/vec)` 等。
+值层 Racket 风格名（`vec-add` / `matrix-ref` …）**不随 `#lang glsl` 导出**；需要时直接
+`(require shader/value/vec)` 等。
 
-细节见 [`value/README.md`](value/README.md)。
+细节见 [`shader/value/README.md`](shader/value/README.md)。
 
 ---
 
@@ -223,12 +222,12 @@ core 因此不需要任何转换函数。
   （`vec-3` → `vec3`、`sampler-2d` → `sampler2D` …）。
 - `shader/type.rkt`：**完整**类型模型（scalar/vector/matrix/sampler/image/…）；
   输入别名先规范成 canonical。
-- `value/type.rkt`：**CPU 可表示子集** + 存储属性（f32/f64/s32/u32/u16/u8）；
+- `shader/value/type.rkt`：**CPU 可表示子集** + 存储属性（f32/f64/s32/u32/u16/u8）；
   输入别名先规范成 canonical。
 
 这样类型别名只有一张表，语言层和值层不会各自维护一份。新增内建类型时：
 更新 `types.rkt` 的 canonical 清单（别名自动生成），再按需更新
-`interface.rkt` 的类型解析 / `value/type.rkt` 的 CPU 子集。
+`interface.rkt` 的类型解析 / `shader/value/type.rkt` 的 CPU 子集。
 
 ---
 
@@ -239,7 +238,7 @@ raco test core-test   # 无需显示器
 ```
 
 覆盖：表面语法重写、标识符便携层（连字符 / 内建变量别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、
-向量与矩阵运算、u8/u16 标量数组、控制流嵌套、`#lang shader/glsl` 顶层入口。
+向量与矩阵运算、u8/u16 标量数组、控制流嵌套、`#lang glsl` 顶层入口。
 
 ---
 

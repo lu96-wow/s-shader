@@ -18,7 +18,7 @@
 ;; ============================================================
 
 (require racket/list racket/string
-         "../shader/ident.rkt")
+         shader/ident)
 
 (provide slang-name slang-name-symbol slang-identifier?
          slang-semantic-name slang-semantic-name-symbol slang-semantic?

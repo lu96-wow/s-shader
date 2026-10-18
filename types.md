@@ -1,4 +1,4 @@
-# 共享词汇 · `types.rkt` —— 内建类型名 + 类型别名
+# 共享词汇 · `shader/types.rkt` —— 内建类型名 + 类型别名
 
 这里放**语言层与值层都要用**的纯词汇表，不包含类型解析逻辑、不依赖 `glsl/` 或
 `value/`。
@@ -10,7 +10,7 @@
 ## 为什么单独一层
 
 - `interface.rkt` 需要判断「这是不是内建类型」并构造完整类型模型。
-- `value/type.rkt` 需要判断「这个类型有没有 CPU 表示」并查存储属性。
+- `shader/value/type.rkt` 需要判断「这个类型有没有 CPU 表示」并查存储属性。
 - 两边都必须把 `vec-3` / `sampler-2d` 这类别名先规范成 `vec3` / `sampler2D`。
 - 如果别名表放在 `glsl/`，值层就会反向依赖语言层；放在这里则两边都只依赖纯词汇。
 
@@ -45,7 +45,7 @@ builtin-type-names               ; canonical symbols
 ## 依赖方向
 
 ```
-types.rkt  ← shader/type.rkt（模型）/ glsl/types.rkt（目录）
+shader/types.rkt  ← shader/type.rkt（模型）/ glsl/types.rkt（目录）
                            ← value/type.rkt
                            ← glsl/rewrite.rkt（for-syntax）
 ```

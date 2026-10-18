@@ -1,10 +1,10 @@
-#lang shader/glsl
+#lang glsl
 
 ;; ============================================================
-;; lang-test.rkt —— #lang shader/glsl 顶层入口端到端测试（纯 GLSL，无 OpenGL）
+;; lang-test.rkt —— #lang glsl 顶层入口端到端测试（纯 GLSL，无 OpenGL）
 ;;
 ;; 运行：racket test/lang-test.rkt
-;; 验证 #lang shader/glsl 把纯 GLSL 部分装好：
+;; 验证 #lang glsl 把纯 GLSL 部分装好：
 ;;   Part 1 语言：(glsl ...) 宏 / 接口反射 / 源映射
 ;;   Part 2 值层：GLSL 风格构造与运算（vec3 / vadd / mat4-* / shader-struct / gl-vec）
 ;;   报错层：parse-error-log 等纯函数可用

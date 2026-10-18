@@ -5,8 +5,8 @@
 ;; ============================================================
 (require rackunit
          ffi/vector
-         "../glsl/core.rkt"
-         "../shader/pretty.rkt")
+         glsl/core
+         shader/pretty)
 
 ;; 变参拼装：core 的 join-spaces 接受列表
 (define (join . parts) (join-spaces parts))

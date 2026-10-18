@@ -14,7 +14,7 @@
 ;; ============================================================
 
 (require racket/list racket/string
-         "../shader/error.rkt")
+         shader/error)
 
 (provide parse-error-log)
 

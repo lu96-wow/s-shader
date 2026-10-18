@@ -1,2 +1,2 @@
 #lang s-exp syntax/module-reader
-shader/slang/main
+slang/main

@@ -26,16 +26,16 @@
 
 (require (for-syntax racket/base racket/list
                      "names.rkt" "types.rkt" "core.rkt"
-                     "../shader/type.rkt"
-                     "../shader/interface.rkt"
-                     "../shader/program.rkt")
+                     shader/type
+                     shader/interface
+                     shader/program)
          "names.rkt"
          "types.rkt"
          "core.rkt"
-         "../shader/type.rkt"
-         "../shader/interface.rkt"
-         "../shader/program.rkt"
-         "../shader/pretty.rkt")
+         shader/type
+         shader/interface
+         shader/program
+         shader/pretty)
 
 (provide slang)
 

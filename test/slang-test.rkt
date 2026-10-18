@@ -11,12 +11,12 @@
 ;; ============================================================
 
 (require rackunit racket/string
-         "../slang/rewrite.rkt"
-         "../slang/types.rkt"
-         "../slang/names.rkt"
-         "../shader/type.rkt"
-         "../shader/interface.rkt"
-         "../shader/program.rkt")
+         slang/rewrite
+         slang/types
+         slang/names
+         shader/type
+         shader/interface
+         shader/program)
 
 (define shader
   (slang

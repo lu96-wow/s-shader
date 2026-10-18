@@ -18,7 +18,7 @@
 ;; ============================================================
 
 (require racket/format racket/string
-         "../shader/emit-util.rkt")
+         shader/emit-util)
 
 (provide slang-attr
          slang-decl slang-field-decl slang-struct-decl

@@ -8,7 +8,7 @@
 | # | 决策 |
 |---|---|
 | 1 | 包名 `racket-shader`；**不做兼容层**，一次迁移干净 |
-| 2 | 语言名见 §1（`#lang shader` / `#lang shader/glsl` / `#lang shader/slang`） |
+| 2 | 语言名见 §1（`#lang shader` / `#lang glsl` / `#lang slang`） |
 | 3 | core 把 glsl 与 slang 的公共逻辑都收进来；语义差异逐条评估后再决定要不要分叉（本文 §2.3） |
 | 4 | 不为向后兼容牺牲能力：以目标语言本身的表达能力为准设计表面语法 |
 | 5 | 现阶段**只拼字符串**，不接编译器、不做编译期校验 |
@@ -26,14 +26,14 @@ Racket 的 `#lang <name>` 解析规则是 `<name>/lang/reader.rkt`（`<name>` �
 | 写法 | 解析到 | 结论 |
 |---|---|---|
 | `#lang slang` | `slang/lang/reader.rkt` | ✅ 可行（需占用顶层 collection `slang`） |
-| `#lang shader/slang` | `shader/slang/lang/reader.rkt` | ✅ 可行 |
-| `#lang shader/glsl` | `shader/glsl/lang/reader.rkt` | ✅ 可行 |
+| `#lang slang` | `shader/slang/lang/reader.rkt` | ✅ 可行 |
+| `#lang glsl` | `shader/glsl/lang/reader.rkt` | ✅ 可行 |
 
 推荐：**一个 collection `shader`，内含 `shader/glsl`、`shader/slang` 两个子集合**，三个语言入口：
 
 - `#lang shader` —— 同时提供 `(glsl ...)` 和 `(slang ...)` 两个宏 + 共享值层（对应决策 3）
-- `#lang shader/glsl` —— 只给 `(glsl ...)`，防止误用错方言的表
-- `#lang shader/slang` —— 只给 `(slang ...)`
+- `#lang glsl` —— 只给 `(glsl ...)`，防止误用错方言的表
+- `#lang slang` —— 只给 `(slang ...)`
 
 不推荐占用顶层 `slang`：真正的 Slang 项目将来若有 Racket 绑定会撞名，而 `shader/slang`
 自解释。若坚持 `#lang slang`，只是多一个两行的 reader，随时可加。
@@ -116,10 +116,10 @@ racket-shader/
     program.rkt pretty.rkt emit-util.rkt error.rkt
     value/…                   ; 原 core/value 平铺搬入
   shader/glsl/
-    lang/reader.rkt main.rkt  ; #lang shader/glsl
+    lang/reader.rkt main.rkt  ; #lang glsl
     core.rkt names.rkt rewrite.rkt types.rkt log.rkt
   shader/slang/
-    lang/reader.rkt main.rkt  ; #lang shader/slang
+    lang/reader.rkt main.rkt  ; #lang slang
     core.rkt names.rkt rewrite.rkt types.rkt attrs.rkt log.rkt
   test/glsl/…  test/slang/…   ; 原 core-test 按方言拆
 ```
@@ -142,7 +142,7 @@ racket-shader/
 ## 5. 迁移清单
 
 - `study-opengl`：20 个文件 `#lang glsl-opengl`；约 45 处 `glsl-*` API 引用；
-  `#lang glsl-opengl` 将变成 `#lang shader/glsl-opengl`（OpenGL 层包同步改名 `racket-shader-opengl`）。
+  `#lang glsl-opengl` 将变成 `#lang glsl-opengl`（OpenGL 层包同步改名 `racket-shader-opengl`）。
 - 现有 shader 里的 `(if …)` 三元（29 处 `(if ` 中需逐条区分是 Racket 层还是 shader 层）
   → 改成三元的新名。
 - `racket-glsl-opengl` 的 `core/meta/*`（`glsl-vertex-layout!`、`glsl-uniform-setter!`）依赖
@@ -169,7 +169,7 @@ racket-shader/
 
 - [x] **step 1** 评估（本文 §2）
 - [x] **step 2** 结构：`core/` 拆成 `types.rkt` + `value/` + `glsl/`；根 `main.rkt` 改为 `#lang shader`
-      （core，只给值层）；语言入口 `#lang shader` / `#lang shader/glsl` 均已实测可用；
+      （core，只给值层）；语言入口 `#lang shader` / `#lang glsl` 均已实测可用；
       11 个测试全绿（分支 `racket-shader`）。
       ★ 顺带验证：**跨包的子集合可以合并**——A 包提供 `shader/glsl`、B 包提供 `shader/glsl-opengl`
       时两者都能解析（`PLTCOLLECTS` 双根实测），所以 OpenGL 层不必改成扁平名。
@@ -202,13 +202,11 @@ racket-shader/
 - [x] **step 3d** `slang/` 骨架（目录 `slang/` = 子集合 `shader/slang`）
       `types.rkt`（`float3`/`float4x4` ↔ canonical）· `names.rkt`（语义/修饰符/属性表）·
       `core.rkt`（`[[vk::…]]` / `cbuffer` / 注解 / 特化常量）· `rewrite.rkt`（声明侧 `(slang …)`）·
-      `lang/reader.rkt` + `main.rkt`。12 个测试全绿，`#lang shader/slang` 可跑。
+      `lang/reader.rkt` + `main.rkt`。12 个测试全绿，`#lang slang` 可跑。
       ★ 验收：**core 一行未改**（`git diff HEAD -- shader/ types.rkt value/` 为空），
         三个预留槽（`args` / `annotations` / `owner`）全部被真实用到。
-      ★ 决议修正：`#lang shader` 只给 core —— 两个方言同时 require 会重复导出
-        `fragment`/`splice`/`shader`/`builtin-type-of`/`parse-error-log`。
-        「自动包含两个方言」需要先把 `fragment`/`splice` 上提到 core（chunk 本就是纯表面数据），
-        属于 step 4 之后的可选重构。
+      ★ 当时暂定 `#lang shader` 只给 core；随后按要求**取消 `#lang shader`**，
+        改为 `#lang glsl` / `#lang slang` 两个独立集合（见下一条）。
 - [ ] **step 4** `shader/slang` 实现：`core.rkt`（原语）/ `rewrite.rkt` / `attrs.rkt`
       （`[[vk::…]]`、`[numthreads]`、`[shader]`）/ 语义注解（`(float4 pos SV-Position)`）/ 日志解析。
 - [ ] **包改名**：目录 `racket-glsl` → `racket-shader`，`raco pkg remove racket-glsl` +
