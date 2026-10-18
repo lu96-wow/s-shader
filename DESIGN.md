@@ -54,6 +54,9 @@
 | （方言）字符串原语 | `glsl/core.rkt` | 全返回字符串、不含换行；预处理指令例外 |
 | （方言）表面语法 | `glsl/rewrite.rkt` | **完全编译期变换**；无运行期求值 |
 | （方言）日志解析 | `glsl/log.rkt` | 位置格式是编译器相关的，每方言一个 |
+| （方言·Slang）类型目录 | `slang/types.rkt` | `float3` / `float4x4` ↔ canonical `vec3` / `mat4` |
+| （方言·Slang）注解表 | `slang/names.rkt` | 语义（`SV_Position`）/ 修饰符 / 属性（`vk::binding`） |
+| （方言·Slang）原语 + 表面语法 | `slang/core.rkt`、`slang/rewrite.rkt` | `[[vk::…]]` / `cbuffer` / 注解 / 特化常量 |
 
 **core / 方言的边界**（唯一允许的依赖方向）：
 
@@ -61,6 +64,7 @@
 types.rkt  value/          ← 两方言共用（CPU 值层与类型名词汇）
 shader/                    ← core：模型、反射、产物、美化、报错
 glsl/  slang/              ← 方言：类型目录 + 标识符表 + 原语 + 表面语法 + 日志解析
+                             （互不 require；#lang shader = 只要 core）
 ```
 
 方言**不得** require 另一个方言；core **不得** require 任何方言。

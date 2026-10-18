@@ -199,8 +199,16 @@ racket-shader/
       预处理条件指令改名 `pp-if` / `pp-elif` / `pp-else` / `pp-endif`（否则与语句 `if` 撞名）；
       组合宏改名 `fragment` / `splice` / `shader`（`glsl` 宏保留方言名）。
       新增 7 条控制流断言锁住新语义。
-- [ ] **step 3d** `shader/slang` 空壳：只放 `types.rkt` 的类型目录骨架 + `names.rkt` 表骨架，
-      验证 core 边界无漏（这一步应该只在 slang 目录里写代码，core 一行不改）。
+- [x] **step 3d** `slang/` 骨架（目录 `slang/` = 子集合 `shader/slang`）
+      `types.rkt`（`float3`/`float4x4` ↔ canonical）· `names.rkt`（语义/修饰符/属性表）·
+      `core.rkt`（`[[vk::…]]` / `cbuffer` / 注解 / 特化常量）· `rewrite.rkt`（声明侧 `(slang …)`）·
+      `lang/reader.rkt` + `main.rkt`。12 个测试全绿，`#lang shader/slang` 可跑。
+      ★ 验收：**core 一行未改**（`git diff HEAD -- shader/ types.rkt value/` 为空），
+        三个预留槽（`args` / `annotations` / `owner`）全部被真实用到。
+      ★ 决议修正：`#lang shader` 只给 core —— 两个方言同时 require 会重复导出
+        `fragment`/`splice`/`shader`/`builtin-type-of`/`parse-error-log`。
+        「自动包含两个方言」需要先把 `fragment`/`splice` 上提到 core（chunk 本就是纯表面数据），
+        属于 step 4 之后的可选重构。
 - [ ] **step 4** `shader/slang` 实现：`core.rkt`（原语）/ `rewrite.rkt` / `attrs.rkt`
       （`[[vk::…]]`、`[numthreads]`、`[shader]`）/ 语义注解（`(float4 pos SV-Position)`）/ 日志解析。
 - [ ] **包改名**：目录 `racket-glsl` → `racket-shader`，`raco pkg remove racket-glsl` +

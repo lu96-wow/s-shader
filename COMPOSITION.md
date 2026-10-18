@@ -148,7 +148,7 @@ surface (glsl …)
 ## 8. 目标使用方式
 
 ```racket
-#lang glsl
+#lang shader/glsl
 
 ;; 可复用片段（编译期）
 (fragment lighting

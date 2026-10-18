@@ -1,9 +1,16 @@
-# racket-glsl —— 纯 GLSL DSL
+# racket-shader —— 着色语言 DSL（GLSL / Slang）
 
-`#lang shader/glsl`（collection `glsl`）：在 Racket 里**写 GLSL 文本、造/算 GLSL 值、反射 shader 接口、
-渲染编译报错**。本包**不依赖、也不含 OpenGL**。
+在 Racket 里**写着色器文本、造/算着色器值、反射 shader 接口、渲染编译报错**。
+本包**不依赖、也不含 OpenGL / Vulkan**。
 
-- 只优化「在 Racket 里使用 GLSL」这件事。
+三个语言入口（collection `shader` 的三个子集合）：
+
+| 语言 | 内容 |
+|---|---|
+| `#lang shader` | core：CPU 值层 + 类型/声明模型 + 接口反射 + 产物/美化/报错（方言无关） |
+| `#lang shader/glsl` | core + `(glsl ...)` 宏（GLSL 方言） |
+| `#lang shader/slang` | core + `(slang ...)` 宏（Slang 方言，声明侧骨架） |
+
 - GL 对象/状态/窗口，以及 shader 的编译/链接，属于另一个独立包 `racket-glsl-opengl`
   （`#lang glsl-opengl`），它单向依赖本包。
 
@@ -15,15 +22,16 @@
 raco pkg install --link .
 ```
 
-依赖 `base`（测试另需 `rackunit-lib`）。两个入口：
+依赖 `base`（测试另需 `rackunit-lib`）。每个方言两种用法：
 
-- **`#lang shader/glsl`** —— 普通 Racket 模块，预置本包全部名字（语言层 + CPU 值层 + 报错层）。
-- **`(require shader/glsl)`** —— 在 `#lang racket/base` 里使用，等价。
+- **`#lang shader/glsl`** / **`#lang shader/slang`** —— 普通 Racket 模块，预置 core + 该方言。
+- **`(require shader/glsl)`** / `(require shader/slang)` —— 在 `#lang racket/base` 里使用，等价。
+- **`#lang shader`** —— 只要 core（值层 + 模型 + 产物 + 报错），不要任何方言宏。
 
 ## 快速开始
 
 ```racket
-#lang glsl
+#lang shader/glsl
 
 (define vert
   (glsl (version 330 core)
@@ -394,6 +402,12 @@ CPU 侧 GLSL 值就是真正的 `ffi/vector`（零拷贝、可直接上传）：
     pretty.rkt              文本美化
     emit-util.rkt           字符串拼装小工具
     error.rkt               报错定位 / 渲染
+  slang/                    ── Slang 方言（#lang shader/slang，step 3d 骨架）──
+    main.rkt  lang/reader.rkt
+    types.rkt               类型目录：float3 / float4x4 ↔ canonical vec3 / mat4
+    names.rkt               语义 / 修饰符 / 属性表（SV-Position → SV_Position …）
+    core.rkt                字符串原语（[[vk::…]] / cbuffer / 语义注解）
+    rewrite.rkt             (slang ...) 宏：目前只实现声明侧
   glsl/                     ── GLSL 方言（#lang shader/glsl）────────
     main.rkt  lang/reader.rkt
     types.rkt               类型目录：拼写 → shader-type
@@ -424,8 +438,8 @@ raco test test          # 无需显示器
 ```
 
 覆盖：表面语法重写、标识符便携层（变量/函数/关键字/类型别名）、字符串原语、美化、接口反射、报错定位、向量构造/布局/运算、
-向量与矩阵运算、u8/u16 标量数组、控制流嵌套、**片段组合（fragment/splice）**、
-`#lang shader/glsl` 顶层入口。
+向量与矩阵运算、u8/u16 标量数组、控制流（含语句 `if` / `if-ternary` / `mul`）、**片段组合（fragment/splice）**、
+`#lang shader/glsl` 顶层入口、**Slang 声明侧**（语义注解 / cbuffer / 特化常量 / 参数化类型）。
 
 ## License
 
