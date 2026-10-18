@@ -76,6 +76,9 @@ struct VS_OUT {
 | `(inout float3 acc)` | `inout float3 acc` | 参数限定符 |
 | `(array float 64) data` | `float data[64]` | 数组维度写在**名字后面**（与 GLSL 不同） |
 | `(atomic-add c 1)` | `InterlockedAdd(c, 1)` | 内建函数别名表；`(barrier)` → `GroupMemoryBarrierWithGroupSync()`、`(wave-sum x)` → `WaveActiveSum(x)` |
+| `(push-const Push (float s))` | `[[vk::push_constant]] cbuffer Push { float s; };` | push constant 块（std430） |
+| `(resource src (sbuffer float) (set 0) (binding 0))` | `[[vk::binding(0, 0)]] StructuredBuffer<float> src;` | 任意资源：`sbuffer` / `rw-sbuffer` / `texture-2d` / `rw-texture-2d` / `sampler-state` |
+| `(param-block Materials mat (set 1) (binding 0) field…)` | `struct Materials { … }; [[vk::binding(0, 1)]] ParameterBlock<Materials> mat;` | 一个描述符集打包多个资源；成员 binding 由 Slang 顺序分配 |
 
 语句与 GLSL 方言一致：`begin` / `when` / `unless` / `if`（语句）/ `if-ternary`（三元）/
 `cond` / `for` / `while` / `do-while` / `switch` / `break` / `continue` / `return` / `discard` / `raw`。
@@ -105,11 +108,43 @@ struct VS_OUT {
 - [x] 数组维度按 HLSL 规则写在名字后面
 - [x] `parse-error-log`（`file:line:col:` / `file(line):`）
 - [x] 原子 / 屏障 / 波内建函数别名表（`atomic-add`→`InterlockedAdd`、`barrier`→`GroupMemoryBarrierWithGroupSync`、`wave-sum`→`WaveActiveSum` …）
-- [ ] `push-constant` / `param-block` / 读写缓冲（`RWStructuredBuffer` / `RWTexture2D`）
-- [ ] 组合宏 `fragment` / `splice`（需决定是否上提到 core，见下）
-- [ ] 接 `slangc` 做编译验证（当前只拼字符串）
+- [x] `push-const` / `param-block` / `resource`（`sbuffer` / `rw-sbuffer` / `texture-2d` / `rw-texture-2d` / `sampler-state`）
+- [x] 接 `slangc` 做编译验证 + `spirv-val`；Vulkan compute 端到端跑通
+- [ ] UBO/推送常量的 std140/std430 布局助手（`shader-struct` 目前是自然布局，只适合顶点属性）
+- [ ] 组合宏 `glsl-fragment` / `glsl-splice` 的 Slang 版（或上提到 core，见下）
 
-## 已知假设（未验证，step 4 接 slangc 时确认）
+## 编译验证（已接 slangc）
+
+```bash
+# 生成 → 编译 → 校验
+slangc shader.slang -target spirv -entry vs_main -stage vertex \
+       -matrix-layout-column-major -o shader.spv
+spirv-val shader.spv
+```
+
+已用 **slangc 2026.20 + spirv-val** 验证过的构造：`cbuffer` / `[[vk::push_constant]] cbuffer` /
+`ParameterBlock<T>` / `StructuredBuffer` / `RWStructuredBuffer` / `Texture2D` / `RWTexture2D` /
+`SamplerState` / 语义注解 / 入口属性。
+
+要点：
+
+- **入口名**：slangc 把 SPIR-V 的入口名固定成 `"main"`（不是函数名）。建 pipeline 时
+  `VkPipelineShaderStageCreateInfo.pName` 要用 `"main"`。
+- **矩阵布局**：Slang 默认**行主序**，而 CPU 值层与 GLSL 是列主序。编译时必须加
+  `-matrix-layout-column-major`，否则 `mat4` 会被按转置解释。
+- **块布局**：`cbuffer` → std140；`push constant` → std430。本包的值层 `shader-struct`
+  是**自然布局**（顶点属性用），不等于 std140/std430（例如 `vec3` 在后面两者里要按 16 字节对齐）。
+  往 UBO/推送常量里塞 `vec3` 要小心，目前建议只用 `mat4` / `float4` / 标量，或用标量数组。
+- **ParameterBlock**：成员按声明顺序从给定 binding 起顺序分配（编译测试里核对过
+  `(set 1) (binding 0)` + 2 个成员 → SPIR-V 里 `DescriptorSet 1 / Binding 0,1`）。
+
+端到端：`experiments/slang-vulkan-compute.rkt` 把 `(slang …)` → slangc → SPIR-V →
+**racket-vulkan** compute dispatch 跑通，并逐元素校验 `dst[i] = src[i] * scale`
+（开 `VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation` 时零校验错误）。
+
+自动化测试：`test/slang-compile-test.rkt`（找不到 slangc 就跳过）。
+
+## 已知假设
 
 1. `[[vk::binding(B, S)]] cbuffer Name { … };` 这种「属性 + cbuffer」的 Vulkan 写法
    能被 slangc 接受（等价写法还有 `struct Name{…}; [[vk::binding(B,S)]] ConstantBuffer<Name> inst;`）。

@@ -219,4 +219,58 @@
 (check-equal? (map shader-error-line (parse-error-log "some note without position\n"))
               '(#f))
 
+
+;; ============================================================
+;; 4c：push constant / 参数块 / 资源声明 / 读写缓冲
+;; ============================================================
+
+(define res
+  (slang
+    (push-const Push (float scale) (uint count))
+    (resource src (sbuffer float) (set 0) (binding 0))
+    (resource dst (rw-sbuffer float) (set 0) (binding 1))
+    (resource tex (texture-2d float4) (set 0) (binding 2))
+    (resource outTex (rw-texture-2d float4) (set 0) (binding 3))
+    (resource samp (sampler-state) (set 0) (binding 4))
+    (param-block Materials mat (set 1) (binding 0)
+      ((texture-2d float4) albedo)
+      (sampler-state samp2))))
+
+(define res-src (shader-program-src res))
+(define res-ifc (shader-program-interface res))
+
+(check-true (string-contains? res-src "[[vk::push_constant]] cbuffer Push {"))
+(check-true (string-contains? res-src "StructuredBuffer<float> src;"))
+(check-true (string-contains? res-src "RWStructuredBuffer<float> dst;"))
+(check-true (string-contains? res-src "Texture2D<float4> tex;"))
+(check-true (string-contains? res-src "RWTexture2D<float4> outTex;"))
+(check-true (string-contains? res-src "SamplerState samp;"))
+(check-true (string-contains? res-src "[[vk::binding(0, 1)]] ParameterBlock<Materials> mat;"))
+
+;; 接口：push constant 块 + 成员 owner
+(define push (shader-interface-ref res-ifc 'Push))
+(check-equal? (shader-type-kind (shader-var-type push)) 'block)
+(check-equal? (shader-var-layout-ref push 'push_constant) #t)
+(check-equal? (map shader-var-owner (shader-type-fields (shader-var-type push)))
+              '(Push Push))
+
+;; 资源变量：kind + set/binding
+(define dst (shader-interface-ref res-ifc 'dst))
+(check-equal? (shader-type-kind (shader-var-type dst)) 'resource)
+(check-equal? (shader-type-name (shader-var-type dst)) 'RWStructuredBuffer)
+(check-equal? (shader-var-layout-ref dst 'set) 0)
+(check-equal? (shader-var-layout-ref dst 'binding) 1)
+
+(define out-tex (shader-interface-ref res-ifc 'outTex))
+(check-equal? (shader-type-kind (shader-var-type out-tex)) 'image)
+(check-equal? (shader-type-name (shader-var-type out-tex)) 'RWTexture2D)
+
+;; 参数块：成员 owner = Materials，binding 由接口表给出
+(define mat (shader-interface-ref res-ifc 'mat))
+(check-equal? (shader-type-kind (shader-var-type mat)) 'block)
+(check-equal? (shader-var-layout-ref mat 'set) 1)
+(check-equal? (map shader-var-owner (shader-type-fields (shader-var-type mat)))
+              '(mat mat))
+
+
 (displayln "slang 全部测试通过")

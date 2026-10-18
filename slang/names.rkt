@@ -21,6 +21,7 @@
          shader/ident)
 
 (provide slang-name slang-name-symbol slang-identifier?
+         slang-storage-qualifier? slang-storage-qualifier-names
          slang-function-name slang-function-name-symbol
          slang-semantic-name slang-semantic-name-symbol slang-semantic?
          slang-semantic-names
@@ -102,11 +103,18 @@
 ;; 表 2 · 修饰符（前缀注解：`nointerpolation float3 n : NORMAL`）
 ;; ============================================================
 
+;; 插值修饰符：只能作为字段/参数的**注解**（前缀），不能当声明限定符。
+;; ★ `sample` 与我们的采样算子 (sample tex samp uv) 同名，所以必须分开：
+;;   声明位置只认 storage qualifier，注解位置两者都认。
+(define interpolation-modifier-names
+  '(nointerpolation linear centroid noperspective sample precise))
+
+;; 存储/参数限定符：可以出现在声明与参数表开头
+(define storage-qualifier-names
+  '(in out inout uniform groupshared static const extern inline))
+
 (define modifier-names
-  '(nointerpolation linear centroid noperspective sample precise
-    groupshared static const extern inline
-    ;; 参数/存储限定符（与 GLSL 同形）
-    in out inout uniform))
+  (append interpolation-modifier-names storage-qualifier-names))
 
 ;; 不规则别名（通用 '-'→'_' 会给出 no_interpolation 这种错拼写）
 (define modifier-explicit-aliases
@@ -117,6 +125,19 @@
 (define modifier-table
   (for*/fold ([h (names->table modifier-names)]) ([p (in-list modifier-explicit-aliases)])
     (hash-set h (normalize-key (car p)) (cdr p))))
+
+(define storage-qualifier-table
+  (for/fold ([h (names->table storage-qualifier-names)]) ([p (in-list modifier-explicit-aliases)])
+    (if (memq (car p) storage-qualifier-names)
+        (hash-set h (normalize-key (car p)) (cdr p))
+        h)))
+
+(define slang-storage-qualifier-names storage-qualifier-names)
+
+;; 声明位置可用的限定符（不含插值修饰符）
+(define (slang-storage-qualifier? x)
+  (and (or (symbol? x) (string? x))
+       (and (hash-ref storage-qualifier-table (normalize-key x) #f) #t)))
 
 (define slang-modifier-names modifier-names)
 

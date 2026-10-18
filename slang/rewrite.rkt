@@ -54,6 +54,10 @@
     (cond
       [(symbol? t)
        (cond
+         [(eq? t 'sampler-state)
+          (values "SamplerState"
+                  (shader-type 'sampler 'SamplerState 'float '() #f #f '() #f '())
+                  "")]
          [(slang-type-of t)
           => (lambda (ty) (values (symbol->string (slang-type-spelling (shader-type-name ty))) ty ""))]
          [(struct-name? t) (values (slang-name t) #f "")]
@@ -74,6 +78,25 @@
                   (shader-type 'resource 'StructuredBuffer #f '() #f #f
                                (if elem-ty (list elem-ty) '()) #f '())
                   "")]
+         [(rw-sbuffer)
+          (unless (= 2 (length t)) (error 'slang "rw-sbuffer 需要 1 个元素类型：~s" t))
+          (define-values (elem-str elem-ty _) (rw-type (cadr t)))
+          (values (format "RWStructuredBuffer<~a>" elem-str)
+                  (shader-type 'resource 'RWStructuredBuffer #f '() #f #f
+                               (if elem-ty (list elem-ty) '()) #f '())
+                  "")]
+         [(sampler-state)
+          (unless (= 1 (length t)) (error 'slang "sampler-state 不带参数：~s" t))
+          (values "SamplerState"
+                  (shader-type 'sampler 'SamplerState 'float '() #f #f '() #f '())
+                  "")]
+         [(rw-texture-2d)
+          (unless (= 2 (length t)) (error 'slang "rw-texture-2d 需要 1 个元素类型：~s" t))
+          (define-values (elem-str elem-ty _) (rw-type (cadr t)))
+          (values (format "RWTexture2D<~a>" elem-str)
+                  (shader-type 'image 'RWTexture2D (and elem-ty (shader-type-base elem-ty))
+                               '() #f #f (if elem-ty (list elem-ty) '()) #f '())
+                  "")]
          [(array)
           (define len (and (pair? (cddr t)) (caddr t)))
           (define-values (elem-str elem-ty elem-suffix) (rw-type (cadr t)))
@@ -84,8 +107,8 @@
       [else (error 'slang "坏类型：~s" t)]))
 
   (define (type-form? t)
-    (or (and (symbol? t) (or (slang-type-of t) (struct-name? t)))
-        (and (pair? t) (memq (car t) '(texture-2d sbuffer array)))))
+    (or (and (symbol? t) (or (slang-type-of t) (eq? t 'sampler-state) (struct-name? t)))
+        (and (pair? t) (memq (car t) '(texture-2d sbuffer rw-sbuffer rw-texture-2d sampler-state array)))))
 
   ;; ---------- 限定符 ----------
 
@@ -94,7 +117,7 @@
     (let loop ([fs fs] [acc '()])
       (cond
         [(null? fs) (values (reverse acc) '())]
-        [(and (symbol? (car fs)) (slang-modifier? (car fs)))
+        [(and (symbol? (car fs)) (slang-storage-qualifier? (car fs)))
          (loop (cdr fs) (cons (slang-modifier-name (car fs)) acc))]
         [else (values (reverse acc) fs)])))
 
@@ -103,7 +126,7 @@
     (and (pair? f)
          (let ([h (car f)] [a (cdr f)])
            (cond
-             [(and (symbol? h) (slang-modifier? h)) #t]
+             [(and (symbol? h) (slang-storage-qualifier? h)) #t]
              [(type-form? h) (and (pair? a) (symbol? (car a)))]
              [else #f]))))
 
@@ -396,6 +419,51 @@
     (values (apply slang-cbuffer (list (list "vk::binding" binding set)) (slang-name name) decls)
             (append (list block-var) members)))
 
+  ;; (push-const Name 字段...) → [[vk::push_constant]] cbuffer Name { … };
+  ;; 字段当全局用（mvp / time），与 cbuffer 一致。
+  (define (rw-push-const f)
+    (define name (cadr f))
+    (define-values (decls members) (fields->decls (cddr f) name))
+    (define block-type (shader-block-type name members))
+    (define block-var (shader-var name (slang-name-symbol name) block-type
+                                  '() (list (list 'push_constant)) '() #f))
+    (values (apply slang-cbuffer (list (list "vk::push_constant")) (slang-name name) decls)
+            (append (list block-var) members)))
+
+  ;; (param-block Name inst (set S) (binding B) 字段...)
+  ;; → struct Name { … }; [[vk::binding(B, S)]] ParameterBlock<Name> inst;
+  ;; 字段通过 inst.field 访问；成员 owner = Name。
+  (define (rw-param-block f)
+    (define name (cadr f))
+    (define inst (caddr f))
+    (define-values (set binding fields) (split-set-binding (cdddr f)))
+    (unless (and set binding)
+      (error 'slang "param-block 需要 (set N) 和 (binding N)：~s" f))
+    ;; 参数块是「块类型 + 实例」：接口里的块变量用**实例名**（mat），
+    ;; 成员的 owner 也用实例名，便于从块走到成员。
+    (define-values (decls members) (fields->decls fields inst))
+    (define block-type (shader-block-type name members))
+    (define block-var (shader-var inst (slang-name-symbol inst) block-type
+                                  '() (list (list 'set set) (list 'binding binding)) '() #f))
+    (values (apply slang-param-block
+                   (list (list "vk::binding" binding set)) (slang-name name) (slang-name inst) decls)
+            (append (list block-var) members)))
+
+  ;; (resource 名字 类型 (set S) (binding B))
+  ;; 任意资源声明：StructuredBuffer / RWStructuredBuffer / Texture2D / RWTexture2D / SamplerState
+  (define (rw-resource f)
+    (define name (cadr f))
+    (define-values (ty-str ty-obj suffix) (rw-type (caddr f)))
+    (unless (string=? suffix "")
+      (error 'slang "resource 的类型不能是数组：~s" f))
+    (define-values (set binding fields) (split-set-binding (cdddr f)))
+    (unless (and set binding (null? fields))
+      (error 'slang "resource 需要 (set N) 和 (binding N)，且后面不再有字段：~s" f))
+    (values (slang-resource (list (list "vk::binding" binding set)) ty-str (slang-name name))
+            (list (shader-var name (slang-name-symbol name)
+                              (or ty-obj (shader-type 'resource 'unknown #f '() #f #f '() #f '()))
+                              '() (list (list 'set set) (list 'binding binding)) '() #f))))
+
   (define (rw-const-id f)
     (define id (cadr f))
     (define-values (ty-str _ty suffix) (rw-type (caddr f)))
@@ -414,6 +482,9 @@
       [(and (pair? d) (eq? (car d) 'struct)) (rw-struct d)]
       [(and (pair? d) (eq? (car d) 'cbuffer)) (rw-cbuffer d)]
       [(and (pair? d) (eq? (car d) 'const-id)) (rw-const-id d)]
+      [(and (pair? d) (eq? (car d) 'push-const)) (rw-push-const d)]
+      [(and (pair? d) (eq? (car d) 'param-block)) (rw-param-block d)]
+      [(and (pair? d) (eq? (car d) 'resource)) (rw-resource d)]
       [(and (pair? d) (eq? (car d) 'define)) (values (rw-fn (cdr d)) '())]
       [(and (pair? d) (eq? (car d) 'raw)) (values (cadr d) '())]
       [else (error 'slang "bad top-level form: ~s" d)]))

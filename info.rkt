@@ -15,8 +15,8 @@
 (define deps '("base"))
 (define build-deps '("rackunit-lib"))   ; test 用
 
-;; test 只是本仓库的测试，不参与包编译 / `raco setup`。
-(define compile-omit-paths '("test"))
+;; test / experiments 不参与包编译（experiments 会 require 外部包 vulkan + slangc）
+(define compile-omit-paths '("test" "experiments"))
 
 (define pkg-desc "Shader DSLs for Racket: #lang glsl, #lang slang (+ core library 'shader')")
 (define pkg-authors '("lu96"))

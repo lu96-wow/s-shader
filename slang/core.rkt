@@ -22,7 +22,8 @@
 
 (provide slang-attr
          slang-decl slang-field-decl slang-struct-decl
-         slang-cbuffer slang-const-id)
+         slang-cbuffer slang-const-id
+         slang-resource slang-param-block)
 
 ;; ---------- 属性 ----------
 
@@ -79,6 +80,16 @@
 (define (slang-cbuffer attrs name . fields)
   (format "~acbuffer ~a { ~a };"
           (slang-attr attrs) (->str name) (join-spaces fields)))
+
+;; [[vk::binding(binding, set)]] 类型 名字;        （任意资源：Buffer / Texture / Sampler）
+(define (slang-resource attrs type name)
+  (format "~a~a ~a;" (slang-attr attrs) (->str type) (->str name)))
+
+;; struct Name { … }; [[vk::binding(binding, set)]] ParameterBlock<Name> inst;
+(define (slang-param-block attrs name inst . fields)
+  (format "struct ~a { ~a }; ~aParameterBlock<~a> ~a;"
+          (->str name) (join-spaces fields)
+          (slang-attr attrs) (->str name) (->str inst)))
 
 ;; [[vk::constant_id(id)]] const type NAME = value;
 (define (slang-const-id id type name value)
